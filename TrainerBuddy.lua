@@ -434,71 +434,101 @@ local function EntryIcon(data)
     return tex or QUESTION_MARK
 end
 
-local function InitRow(row, data)
-    if not row.nameText then
-        row:SetHeight(ROW_HEIGHT)
-        row.bg = row:CreateTexture(nil, "BACKGROUND")
-        row.bg:SetAllPoints()
-        row.bg:SetColorTexture(1, 1, 1, 0.05)
-        row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+local CARD_WIDTH = 400   -- the card stays compact, so Restore is right next to the entry
 
-        row.iconBG = row:CreateTexture(nil, "BORDER")
-        row.iconBG:SetSize(40, 40)
-        row.iconBG:SetPoint("LEFT", 8, 0)
-        row.iconBG:SetColorTexture(0, 0, 0, 0.9)
-        row.icon = row:CreateTexture(nil, "ARTWORK")
-        row.icon:SetSize(36, 36)
-        row.icon:SetPoint("CENTER", row.iconBG)
-        row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-
-        row.nameText = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        row.nameText:SetPoint("TOPLEFT", row.iconBG, "TOPRIGHT", 10, -4)
-        row.nameText:SetJustifyH("LEFT")
-        row.subText = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        row.subText:SetPoint("TOPLEFT", row.nameText, "BOTTOMLEFT", 0, -4)
-        row.subText:SetJustifyH("LEFT")
-        row.subText:SetTextColor(0.65, 0.65, 0.65)
-
-        row.btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        row.btn:SetSize(90, 24)
-        row.btn:SetPoint("RIGHT", -10, 0)
-        row.btn:SetText("Restore")
-
-        row:SetScript("OnEnter", function(self)
-            local d = self.data
-            local entry = db.hidden[d.key]
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            if entry and entry.spellID then
-                GameTooltip:SetSpellByID(entry.spellID)
-            elseif entry and entry.lines and #entry.lines > 0 then
-                for _, l in ipairs(entry.lines) do
-                    if l[2] and l[2] ~= "" then
-                        GameTooltip:AddDoubleLine(l[1] or "", l[2], l[3], l[4], l[5], 1, 1, 1)
-                    else
-                        GameTooltip:AddLine(l[1] or "", l[3], l[4], l[5], true)
-                    end
-                end
+local function ShowEntryTooltip(card)
+    local d = card.data
+    local entry = db.hidden[d.key]
+    GameTooltip:SetOwner(card, "ANCHOR_RIGHT")
+    if entry and entry.spellID then
+        GameTooltip:SetSpellByID(entry.spellID)
+    elseif entry and entry.lines and #entry.lines > 0 then
+        for _, l in ipairs(entry.lines) do
+            if l[2] and l[2] ~= "" then
+                GameTooltip:AddDoubleLine(l[1] or "", l[2], l[3], l[4], l[5], 1, 1, 1)
             else
-                -- not captured yet (visit the trainer once): try a lookup by name
-                local info = C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(d.name)
-                if info and info.spellID then
-                    GameTooltip:SetSpellByID(info.spellID)
-                else
-                    GameTooltip:AddLine(d.name, 1, 1, 1)
-                    if d.sub then GameTooltip:AddLine(d.sub) end
-                    GameTooltip:AddLine("Open this trainer once to load the description.", 0.6, 0.6, 0.6, true)
-                end
+                GameTooltip:AddLine(l[1] or "", l[3], l[4], l[5], true)
             end
-            GameTooltip:Show()
+        end
+    else
+        -- not captured yet (visit the trainer once): try a lookup by name
+        local info = C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(d.name)
+        if info and info.spellID then
+            GameTooltip:SetSpellByID(info.spellID)
+        else
+            GameTooltip:AddLine(d.name, 1, 1, 1)
+            if d.sub then GameTooltip:AddLine(d.sub) end
+            GameTooltip:AddLine("Open this trainer once to load the description.", 0.6, 0.6, 0.6, true)
+        end
+    end
+    GameTooltip:Show()
+end
+
+local function InitRow(row, data)
+    if not row.card then
+        row:SetHeight(ROW_HEIGHT)
+
+        local card = CreateFrame("Button", nil, row, "BackdropTemplate")
+        card:SetPoint("TOPLEFT", 6, -2)
+        card:SetSize(CARD_WIDTH, ROW_HEIGHT - 4)
+        card:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            edgeSize = 1,
+        })
+        card:SetBackdropColor(0.07, 0.07, 0.09, 0.8)
+        card:SetBackdropBorderColor(0.28, 0.28, 0.32, 1)
+        row.card = card
+
+        -- thin gold accent on the left edge
+        local accent = card:CreateTexture(nil, "ARTWORK")
+        accent:SetColorTexture(0.85, 0.65, 0.15, 0.9)
+        accent:SetPoint("TOPLEFT", 1, -1)
+        accent:SetPoint("BOTTOMLEFT", 1, 1)
+        accent:SetWidth(3)
+
+        card.iconBG = card:CreateTexture(nil, "BORDER")
+        card.iconBG:SetSize(36, 36)
+        card.iconBG:SetPoint("LEFT", 12, 0)
+        card.iconBG:SetColorTexture(0, 0, 0, 1)
+        card.icon = card:CreateTexture(nil, "ARTWORK")
+        card.icon:SetSize(32, 32)
+        card.icon:SetPoint("CENTER", card.iconBG)
+        card.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+        card.btn = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
+        card.btn:SetSize(80, 22)
+        card.btn:SetPoint("RIGHT", -10, 0)
+        card.btn:SetText("Restore")
+
+        card.nameText = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        card.nameText:SetPoint("TOPLEFT", card.iconBG, "TOPRIGHT", 10, -3)
+        card.nameText:SetPoint("RIGHT", card.btn, "LEFT", -8, 0)
+        card.nameText:SetJustifyH("LEFT")
+        card.nameText:SetWordWrap(false)
+        card.subText = card:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        card.subText:SetPoint("TOPLEFT", card.nameText, "BOTTOMLEFT", 0, -3)
+        card.subText:SetJustifyH("LEFT")
+        card.subText:SetTextColor(0.65, 0.65, 0.65)
+
+        card:SetScript("OnEnter", function(self)
+            self:SetBackdropColor(0.14, 0.12, 0.06, 0.95)
+            self:SetBackdropBorderColor(1, 0.82, 0, 1)
+            ShowEntryTooltip(self)
         end)
-        row:SetScript("OnLeave", GameTooltip_Hide)
+        card:SetScript("OnLeave", function(self)
+            self:SetBackdropColor(0.07, 0.07, 0.09, 0.8)
+            self:SetBackdropBorderColor(0.28, 0.28, 0.32, 1)
+            GameTooltip_Hide()
+        end)
     end
 
-    row.data = data
-    row.icon:SetTexture(EntryIcon(data))
-    row.nameText:SetText(data.name)
-    row.subText:SetText(data.sub and (data.sub .. " only") or "All ranks")
-    row.btn:SetScript("OnClick", function() RestoreEntry(data.key) end)
+    local card = row.card
+    card.data = data
+    card.icon:SetTexture(EntryIcon(data))
+    card.nameText:SetText(data.name)
+    card.subText:SetText(data.sub and (data.sub .. " only") or "All ranks")
+    card.btn:SetScript("OnClick", function() RestoreEntry(data.key) end)
 end
 
 local function BuildOptions()
@@ -548,7 +578,7 @@ local function BuildOptions()
 
     local view = CreateScrollBoxListLinearView()
     view:SetElementExtent(ROW_HEIGHT)
-    view:SetPadding(0, 0, 0, 0, 3)
+    view:SetPadding(0, 0, 0, 0, 2)
     view:SetElementFactory(function(factory, elementData)
         factory("Button", InitRow)
     end)
