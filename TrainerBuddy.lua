@@ -726,24 +726,6 @@ local function CreatePopup()
     popup.title:SetPoint("LEFT", 8, 0)
     popup.title:SetText("New spells - drag to your bars")
 
-    -- little gryphon / wyvern on each side, like the main action bar
-    local faction = UnitFactionGroup("player")
-    local kind = faction == "Alliance" and "gryphon" or faction == "Horde" and "wyvern" or nil
-    if kind and HasAtlas("ui-hud-actionbar-" .. kind .. "-left") then
-        local function Cap(side, point, relPoint, x)
-            local atlas = "ui-hud-actionbar-" .. kind .. "-" .. side
-            local info = C_Texture.GetAtlasInfo(atlas)
-            local h = 70
-            local t = popup:CreateTexture(nil, "ARTWORK")
-            t:SetAtlas(atlas)
-            t:SetSize(info.width / info.height * h, h)
-            t:SetPoint(point, popup, relPoint, x, -4)
-            return t
-        end
-        popup.capLeft  = Cap("left",  "BOTTOMRIGHT", "BOTTOMLEFT", 70)
-        popup.capRight = Cap("right", "BOTTOMLEFT", "BOTTOMRIGHT", -36)
-    end
-
     popup.close = CreateFrame("Button", nil, popup.header, "UIPanelCloseButton")
     popup.close:SetPoint("RIGHT", 3, 0)
     popup.close:SetScale(0.62)
