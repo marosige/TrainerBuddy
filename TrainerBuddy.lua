@@ -650,12 +650,8 @@ local function BuildOptions()
         RefreshTrainer()
     end)
 
-    local desc = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    desc:SetPoint("TOPLEFT", hidHeader, "BOTTOMLEFT", 0, -14)
-    desc:SetText("Entries you hid at a trainer (right-click an entry). Unhide brings them back.")
-
     scrollBox = CreateFrame("Frame", nil, panel, "WowScrollBoxList")
-    scrollBox:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -10)
+    scrollBox:SetPoint("TOPLEFT", hidHeader, "BOTTOMLEFT", 0, -14)
     scrollBox:SetPoint("BOTTOMRIGHT", -36, 16)
     local scrollBar = CreateFrame("EventFrame", nil, panel, "MinimalScrollBar")
     scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 6, 0)
