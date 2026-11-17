@@ -1017,19 +1017,32 @@ end)
 
 SLASH_TRAINERBUDDY1 = "/trainerbuddy"
 SLASH_TRAINERBUDDY2 = "/tb"
+local function PrintHelp()
+    local c = "|cff66ccff"
+    print(c .. "Trainer Buddy|r commands:")
+    print("  " .. c .. "/tb|r - open the settings and hidden list")
+    print("  " .. c .. "/tb auto|r - toggle action bar auto-upgrade")
+    print("  " .. c .. "/tb popup|r - toggle the new spells popup")
+    print("  " .. c .. "/tb test [count]|r - preview the popup with random spells (again to clear)")
+    print("  " .. c .. "/tb test upgrade|r - list which action bar slots auto-upgrade would change")
+    print("  " .. c .. "/tb help|r - this list")
+end
+
 SlashCmdList["TRAINERBUDDY"] = function(msg)
-    msg = (msg or ""):lower()
-    if msg == "auto" then
+    msg = strtrim((msg or ""):lower())
+    if msg == "" then
+        if category then Settings.OpenToCategory(category:GetID()) end
+    elseif msg == "auto" then
         SetAutoReplace(not db.autoReplace)
-    elseif msg == "test upgrade" then
-        TestUpgrade()
-    elseif msg:match("^test") then
-        TestPopup(msg:match("^test%s+(%d+)"))
     elseif msg == "popup" then
         db.showPopup = not db.showPopup
         print("|cff66ccffTrainer Buddy|r: new-spells popup " .. (db.showPopup and "ON" or "OFF"))
         RefreshPopup()
-    elseif category then
-        Settings.OpenToCategory(category:GetID())
+    elseif msg == "test upgrade" then
+        TestUpgrade()
+    elseif msg == "test" or msg:match("^test%s+%d+$") then
+        TestPopup(msg:match("^test%s+(%d+)"))
+    else
+        PrintHelp()  -- "help" and anything unknown
     end
 end
