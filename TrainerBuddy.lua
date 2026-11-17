@@ -678,8 +678,15 @@ local function PickupSpellByID(spellID)
     C_Spell.PickupSpell(spellID)
 end
 
+-- Same pieces the real action buttons are built from
+local SLOT_ATLAS   = "UI-HUD-ActionBar-IconFrame-Slot"        -- empty slot
+local BG_ATLAS     = "UI-HUD-ActionBar-IconFrame-Background"  -- behind the icon
+local BORDER_ATLAS = "UI-HUD-ActionBar-IconFrame"             -- frame around the icon
+local MASK_ATLAS   = "UI-HUD-ActionBar-IconFrame-Mask"        -- rounded icon corners
+local HILITE_ATLAS = "UI-HUD-ActionBar-IconFrame-Mouseover"
+
 local function HasAtlas(name)
-    return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
+    return type(name) == "string" and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
 end
 
 local HEADER_H, PAD = 26, 10
