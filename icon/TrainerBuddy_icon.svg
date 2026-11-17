@@ -20,6 +20,7 @@
       <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0.1  0 0 0 -2.2 1.35" result="a"/>
       <feComposite in="a" in2="SourceGraphic" operator="in"/>
     </filter>
+    <clipPath id="pageclip"><path d="M130 412 C102 414 84 432 82 456 L420 456 L420 400 L130 400 Z"/></clipPath>
     <clipPath id="sq"><rect width="512" height="512" rx="22"/></clipPath>
 
     <!-- book -->
@@ -55,23 +56,23 @@
     <!-- shadow -->
     <ellipse cx="258" cy="462" rx="150" ry="18" fill="#000" opacity="0.45"/>
 
-    <g transform="translate(26 -10) scale(1.0) rotate(-9 256 256)">
+    <g transform="translate(26 -22) scale(1.0) rotate(-9 256 256)">
+
+      <!-- page block: its left end is cut by the spine's bottom curve -->
+      <path d="M130 412 L376 412 L344 444 L60 444 Z" clip-path="url(#pageclip)" fill="url(#pages)" stroke="#1a0d05" stroke-width="11" stroke-linejoin="round"/>
+      <path d="M118 420 L360 420 M110 427 L352 427 M104 434 L346 434 M98 440 L342 440" clip-path="url(#pageclip)" stroke="#b79b5c" stroke-width="2.5" opacity="0.9" stroke-linecap="round"/>
 
       <!-- rounded codex spine -->
-      <path d="M130 74 C102 76 84 94 82 118 L82 368 C84 392 102 410 130 412 Z" fill="url(#spineg)" stroke="#1a0d05" stroke-width="12" stroke-linejoin="round"/>
+      <path d="M130 74 C102 76 84 94 82 118 L82 456 C84 432 102 414 130 412 Z" fill="url(#spineg)" stroke="#1a0d05" stroke-width="12" stroke-linejoin="round"/>
       <!-- head and tail bands -->
-      <path d="M130 90 Q100 94 86 118 M130 396 Q100 392 86 368" fill="none" stroke="#e7b53a" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+      <path d="M130 90 Q100 94 86 118 M130 396 Q100 400 86 424" fill="none" stroke="#e7b53a" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
       <!-- raised bands wrapping the spine -->
       <g fill="none" stroke-linecap="round">
-        <path d="M130 136 Q98 142 84 170 M130 192 Q98 198 84 226 M130 248 Q98 254 84 282 M130 304 Q98 310 84 338" stroke="#1a0d05" stroke-width="15"/>
-        <path d="M130 136 Q98 142 84 170 M130 192 Q98 198 84 226 M130 248 Q98 254 84 282 M130 304 Q98 310 84 338" stroke="#f0c24a" stroke-width="8"/>
-        <path d="M130 134 Q98 140 84 168 M130 190 Q98 196 84 224 M130 246 Q98 252 84 280 M130 302 Q98 308 84 336" stroke="#fff3b0" stroke-width="2.5" opacity="0.7"/>
+        <path d="M130 140 Q98 146 84 174 M130 196 Q98 202 84 230 M130 252 Q98 258 84 286 M130 308 Q98 314 84 342 M130 364 Q98 370 84 398" stroke="#1a0d05" stroke-width="15"/>
+        <path d="M130 140 Q98 146 84 174 M130 196 Q98 202 84 230 M130 252 Q98 258 84 286 M130 308 Q98 314 84 342 M130 364 Q98 370 84 398" stroke="#f0c24a" stroke-width="8"/>
+        <path d="M130 138 Q98 144 84 172 M130 194 Q98 200 84 228 M130 250 Q98 256 84 284 M130 306 Q98 312 84 340 M130 362 Q98 368 84 396" stroke="#fff3b0" stroke-width="2.5" opacity="0.7"/>
       </g>
       <path d="M106 112 L106 180 M106 232 L106 310" stroke="#fff" stroke-width="6" opacity="0.16" stroke-linecap="round"/>
-
-      <!-- page block, small rounded end next to the spine -->
-      <path d="M128 411 L376 411 L344 444 L128 444 A9 16.5 0 0 1 128 411 Z" fill="url(#pages)" stroke="#1a0d05" stroke-width="11" stroke-linejoin="round"/>
-      <path d="M126 419 L360 419 M125 426 L352 426 M125 433 L346 433 M126 439 L342 439" stroke="#b79b5c" stroke-width="2.5" opacity="0.9" stroke-linecap="round"/>
 
       <!-- cover -->
       <rect x="130" y="74" width="246" height="338" rx="12" fill="url(#cover)" stroke="#1a0d05" stroke-width="14" stroke-linejoin="round"/>
