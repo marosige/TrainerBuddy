@@ -689,7 +689,7 @@ local function HasAtlas(name)
     return type(name) == "string" and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
 end
 
-local HEADER_H, PAD = 26, 10
+local HEADER_H, PAD = 26, 12
 local dividerPool
 local decorWarned
 
@@ -724,22 +724,24 @@ local function CreatePopup()
         db.popupPos = { point, relPoint, x, y }
     end)
 
-    -- header plaque: Blizzard's dark dialog border, title left, close button right
-    local ok, header = pcall(CreateFrame, "Frame", nil, popup, "DialogBorderDarkTemplate")
-    if not ok then
-        SafeDecor("header", error, header, 0)
-        header = CreateFrame("Frame", nil, popup)
-    end
+    -- header: a slim strip drawn with the same border art as the bar below
+    local header = CreateFrame("Frame", nil, popup)
     popup.header = header
-    header:SetPoint("TOPLEFT")
-    header:SetPoint("TOPRIGHT")
+    header:SetPoint("TOPLEFT", PAD, -6)
+    header:SetPoint("TOPRIGHT", -PAD, -6)
     header:SetHeight(HEADER_H)
+    SafeDecor("header art", function()
+        local art = header:CreateTexture(nil, "BACKGROUND", nil, -3)
+        art:SetAtlas("UI-HUD-ActionBar-Frame")
+        art:SetPoint("TOPLEFT", -6, 6)
+        art:SetPoint("BOTTOMRIGHT", 4, -5)
+    end)
     popup.title = header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    popup.title:SetPoint("LEFT", 12, 0)
+    popup.title:SetPoint("LEFT", 10, 0)
     popup.title:SetText("Place your new spells")
 
     popup.close = CreateFrame("Button", nil, header, "UIPanelCloseButton")
-    popup.close:SetPoint("RIGHT", 2, 0)
+    popup.close:SetPoint("RIGHT", -2, 0)
     popup.close:SetScale(0.62)
     popup.close:SetScript("OnClick", function()
         wipe(db.newSpells)
@@ -749,7 +751,7 @@ local function CreatePopup()
 
     -- the bar itself: the real action bar's border art, slots and dividers
     popup.bar = CreateFrame("Frame", nil, popup)
-    popup.bar:SetPoint("TOPLEFT", popup.header, "BOTTOMLEFT", PAD, -8)
+    popup.bar:SetPoint("TOPLEFT", popup.header, "BOTTOMLEFT", 0, -14)
     SafeDecor("bar art", function()
         if HasAtlas("UI-HUD-ActionBar-Frame") then
             local art = popup.bar:CreateTexture(nil, "BACKGROUND", nil, -3)
@@ -869,7 +871,10 @@ function RefreshPopup()
     local barW = cols * (ICON_SIZE + ICON_GAP) - ICON_GAP
     local barH = rows * (ICON_SIZE + ICON_GAP) - ICON_GAP
     popup.bar:SetSize(barW, barH)
-    popup:SetSize(math.max(barW + 2 * PAD, 190), HEADER_H + 8 + barH + PAD)
+    local width = math.max(barW, 170)
+    popup.bar:ClearAllPoints()
+    popup.bar:SetPoint("TOP", popup.header, "BOTTOM", 0, -14)
+    popup:SetSize(width + 2 * PAD, 6 + HEADER_H + 14 + barH + PAD)
 
     -- the golden dividers between neighbouring slots (single row only, like the real bar)
     if dividerPool then
