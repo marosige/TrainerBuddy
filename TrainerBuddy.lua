@@ -68,7 +68,7 @@ local function ApplyFilter()
                 end
             end
         end
-        if toRemove then
+        if toRemove and not db.showHidden then
             for _, node in ipairs(toRemove) do
                 dp:Remove(node)
             end
@@ -105,6 +105,13 @@ local function HideEntry(name, sub, allRanks, icon)
     RefreshOptions()
 end
 
+local function UnhideEntry(name, sub)
+    db.hidden[AllKey(name)] = nil
+    db.hidden[RankKey(name, sub)] = nil
+    RefreshTrainer()
+    RefreshOptions()
+end
+
 local function ShowContextMenu(button)
     local index = button:GetID()
     local name, _, icon, _, sub = GetTrainerServiceInfo(index)
@@ -113,7 +120,11 @@ local function ShowContextMenu(button)
 
     MenuUtil.CreateContextMenu(button, function(owner, root)
         root:CreateTitle(name .. (sub ~= "" and (" (" .. sub .. ")") or ""))
-        if sub ~= "" then
+        if IsHidden(name, sub) then
+            root:CreateButton("Unhide " .. name, function()
+                UnhideEntry(name, sub)
+            end)
+        elseif sub ~= "" then
             root:CreateButton("Hide this rank only (" .. sub .. ")", function()
                 HideEntry(name, sub, false, icon)
             end)
@@ -143,10 +154,22 @@ local function HookSkillButton(button)
     end)
     button:HookScript("OnEnter", function(self)
         if GameTooltip:IsOwned(self) then
-            GameTooltip:AddLine("|cff88ccffRight-click:|r hide this entry")
+            GameTooltip:AddLine("|cff88ccffRight-click:|r hide / unhide this entry")
             GameTooltip:Show()
         end
     end)
+end
+
+-- Runs after every (re)build of a trainer row.
+local function DecorateButton(button)
+    if button == ClassTrainerFrame.skillStepButton then return end
+    HookSkillButton(button)
+    if db.showHidden then
+        local name, _, _, _, sub = GetTrainerServiceInfo(button:GetID())
+        if IsHidden(name, sub) then
+            button.name:SetText((button.name:GetText() or name) .. "  |cffb08cff(hidden)|r")
+        end
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -293,15 +316,41 @@ local function SetupTrainerFrame()
     CreateTrainAllButton()
 
     hooksecurefunc("ClassTrainerFrame_Update", ApplyFilter)
-    hooksecurefunc("ClassTrainerFrame_InitServiceButton", HookSkillButton)
+    hooksecurefunc("ClassTrainerFrame_InitServiceButton", DecorateButton)
 
-    -- entry in the Filter dropdown to open the hidden list
+    -- integrate into the trainer's Settings dropdown
     if Menu and Menu.ModifyMenu then
         Menu.ModifyMenu("MENU_TRAINER_FILTER", function(dropdown, root)
+            -- 1) "Hidden" goes next to Available / Unavailable / Already Known
+            local filters
+            for _, desc in root:EnumerateElementDescriptions() do
+                if not (desc.IsCheckbox and desc:IsCheckbox()) then
+                    for _ in desc:EnumerateElementDescriptions() do
+                        filters = desc   -- the "Filters" submenu (it has children)
+                        break
+                    end
+                    if filters then break end
+                end
+            end
+            local target = filters or root
+            target:CreateCheckbox("Hidden",
+                function() return db.showHidden end,
+                function()
+                    db.showHidden = not db.showHidden
+                    RefreshTrainer()
+                end)
+
+            -- 2) our own options below the Blizzard ones
             root:CreateDivider()
             root:CreateCheckbox("Auto-upgrade action bars",
                 function() return db.autoReplace end,
                 function() SetAutoReplace(not db.autoReplace) end)
+            root:CreateCheckbox("Popup for new spells",
+                function() return db.showPopup end,
+                function()
+                    db.showPopup = not db.showPopup
+                    RefreshPopup()
+                end)
             root:CreateButton("Hidden entries (" .. CountHidden() .. ")...", function()
                 if category then Settings.OpenToCategory(category:GetID()) end
             end)
@@ -458,7 +507,11 @@ local function BuildOptions()
     emptyText:SetPoint("TOP", scrollBox, "TOP", 0, -20)
     emptyText:SetText("Nothing hidden.")
 
-    panel:SetScript("OnShow", RefreshOptions)
+    panel:SetScript("OnShow", function()
+        auto:SetChecked(db.autoReplace)
+        pop:SetChecked(db.showPopup)
+        RefreshOptions()
+    end)
 
     category = Settings.RegisterCanvasLayoutCategory(panel, "Trainer Buddy")
     Settings.RegisterAddOnCategory(category)
