@@ -684,6 +684,17 @@ end
 
 local HEADER_H, PAD = 26, 10
 local dividerPool
+local decorWarned
+
+-- Decorations (bar art, dividers) must never break the popup itself: report once and carry on.
+local function SafeDecor(what, fn, ...)
+    local ok, err = pcall(fn, ...)
+    if not ok and not decorWarned then
+        decorWarned = true
+        print("|cff66ccffTrainer Buddy|r: popup " .. what .. " failed: " .. tostring(err))
+    end
+    return ok
+end
 
 local function CreatePopup()
     popup = CreateFrame("Frame", "TrainerBuddyNewSpells", UIParent)
@@ -708,7 +719,10 @@ local function CreatePopup()
 
     -- header plaque: Blizzard's dark dialog border, title left, close button right
     local ok, header = pcall(CreateFrame, "Frame", nil, popup, "DialogBorderDarkTemplate")
-    if not ok then header = CreateFrame("Frame", nil, popup) end
+    if not ok then
+        SafeDecor("header", error, header, 0)
+        header = CreateFrame("Frame", nil, popup)
+    end
     popup.header = header
     header:SetPoint("TOPLEFT")
     header:SetPoint("TOPRIGHT")
@@ -729,14 +743,17 @@ local function CreatePopup()
     -- the bar itself: the real action bar's border art, slots and dividers
     popup.bar = CreateFrame("Frame", nil, popup)
     popup.bar:SetPoint("TOPLEFT", popup.header, "BOTTOMLEFT", PAD, -8)
-    if HasAtlas("UI-HUD-ActionBar-Frame") then
-        local art = popup.bar:CreateTexture(nil, "BACKGROUND", nil, -3)
-        art:SetAtlas("UI-HUD-ActionBar-Frame")
-        art:SetPoint("TOPLEFT", -6, 6)
-        art:SetPoint("BOTTOMRIGHT", 4, -5)
-    end
-    local ok2, pool = pcall(CreateFramePool, "FRAME", popup.bar, "HorizontalDividerTemplate")
-    if ok2 then dividerPool = pool end
+    SafeDecor("bar art", function()
+        if HasAtlas("UI-HUD-ActionBar-Frame") then
+            local art = popup.bar:CreateTexture(nil, "BACKGROUND", nil, -3)
+            art:SetAtlas("UI-HUD-ActionBar-Frame")
+            art:SetPoint("TOPLEFT", -6, 6)
+            art:SetPoint("BOTTOMRIGHT", 4, -5)
+        end
+    end)
+    SafeDecor("dividers", function()
+        dividerPool = CreateFramePool("FRAME", popup.bar, "HorizontalDividerTemplate")
+    end)
     popup:Hide()
 end
 
@@ -849,19 +866,21 @@ function RefreshPopup()
 
     -- the golden dividers between neighbouring slots (single row only, like the real bar)
     if dividerPool then
-        dividerPool:ReleaseAll()
-        if rows == 1 then
-            for i = 2, slots do
-                local b = popupButtons[i]
-                local d = dividerPool:Acquire()
-                d:ClearAllPoints()
-                d:SetPoint("TOP", b, "TOP", 0, 0)
-                d:SetPoint("BOTTOM", b, "BOTTOM", 0, 0)
-                d:SetPoint("RIGHT", b, "LEFT", 5, 0)
-                d:SetFrameLevel(b:GetFrameLevel() + 2)
-                d:Show()
+        SafeDecor("dividers", function()
+            dividerPool:ReleaseAll()
+            if rows == 1 then
+                for i = 2, slots do
+                    local b = popupButtons[i]
+                    local d = dividerPool:Acquire()
+                    d:ClearAllPoints()
+                    d:SetPoint("TOP", b, "TOP", 0, 0)
+                    d:SetPoint("BOTTOM", b, "BOTTOM", 0, 0)
+                    d:SetPoint("RIGHT", b, "LEFT", 5, 0)
+                    d:SetFrameLevel(b:GetFrameLevel() + 2)
+                    d:Show()
+                end
             end
-        end
+        end)
     end
     popup:Show()
 end
