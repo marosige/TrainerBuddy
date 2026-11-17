@@ -683,18 +683,13 @@ local function HasAtlas(name)
 end
 
 local function CreatePopup()
-    popup = CreateFrame("Frame", "TrainerBuddyNewSpells", UIParent, "BackdropTemplate")
+    popup = CreateFrame("Frame", "TrainerBuddyNewSpells", UIParent)
     popup:SetFrameStrata("MEDIUM")
     popup:SetClampedToScreen(true)
     popup:SetMovable(true)
     popup:EnableMouse(true)
     popup:RegisterForDrag("LeftButton")
-    popup:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 },
-    })
-    popup:SetBackdropColor(0, 0, 0, 0.85)
+    popup:SetHitRectInsets(0, 0, -22, 0)  -- the title row above also drags the bar
 
     local pos = db.popupPos
     if pos then
@@ -709,9 +704,10 @@ local function CreatePopup()
         db.popupPos = { point, relPoint, x, y }
     end)
 
+    -- no box: just the slots, with a small label and close button above them
     popup.title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    popup.title:SetPoint("TOPLEFT", 10, -8)
-    popup.title:SetText("New spells - drag to your bars")
+    popup.title:SetPoint("BOTTOMLEFT", popup, "TOPLEFT", 2, 4)
+    popup.title:SetText("New spells")
 
     -- little gryphon / wyvern on each side, like the main action bar
     local faction = UnitFactionGroup("player")
@@ -720,20 +716,20 @@ local function CreatePopup()
         local function Cap(side, point, relPoint, x)
             local atlas = "ui-hud-actionbar-" .. kind .. "-" .. side
             local info = C_Texture.GetAtlasInfo(atlas)
-            local h = 70
+            local h = ICON_SIZE * 2.1
             local t = popup:CreateTexture(nil, "ARTWORK")
             t:SetAtlas(atlas)
             t:SetSize(info.width / info.height * h, h)
-            t:SetPoint(point, popup, relPoint, x, -4)
+            t:SetPoint(point, popup, relPoint, x, -6)
             return t
         end
-        popup.capLeft  = Cap("left",  "BOTTOMRIGHT", "BOTTOMLEFT", 10)
-        popup.capRight = Cap("right", "BOTTOMLEFT", "BOTTOMRIGHT", -10)
+        popup.capLeft  = Cap("left",  "BOTTOMRIGHT", "BOTTOMLEFT", 4)
+        popup.capRight = Cap("right", "BOTTOMLEFT", "BOTTOMRIGHT", -4)
     end
 
     popup.close = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
-    popup.close:SetPoint("TOPRIGHT", 2, 2)
-    popup.close:SetScale(0.8)
+    popup.close:SetPoint("BOTTOMRIGHT", popup, "TOPRIGHT", 4, -2)
+    popup.close:SetScale(0.6)
     popup.close:SetScript("OnClick", function()
         wipe(db.newSpells)
         wipe(testSpells)
@@ -836,7 +832,7 @@ function RefreshPopup()
         local b = GetButton(i)
         local col, row = (i - 1) % PER_ROW, math.floor((i - 1) / PER_ROW)
         b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", popup, "TOPLEFT", 10 + col * (ICON_SIZE + ICON_GAP), -26 - row * (ICON_SIZE + ICON_GAP))
+        b:SetPoint("TOPLEFT", popup, "TOPLEFT", col * (ICON_SIZE + ICON_GAP), -row * (ICON_SIZE + ICON_GAP))
         local spellID = list[i]
         b.spellID = spellID
         local filled = spellID ~= nil
@@ -851,8 +847,8 @@ function RefreshPopup()
 
     local cols = math.min(slots, PER_ROW)
     local rows = math.ceil(slots / PER_ROW)
-    popup:SetSize(20 + cols * (ICON_SIZE + ICON_GAP) - ICON_GAP,
-                  36 + rows * (ICON_SIZE + ICON_GAP) - ICON_GAP)
+    popup:SetSize(cols * (ICON_SIZE + ICON_GAP) - ICON_GAP,
+                  rows * (ICON_SIZE + ICON_GAP) - ICON_GAP)
     popup:Show()
 end
 
