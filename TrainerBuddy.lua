@@ -135,7 +135,7 @@ local RefreshOptions  -- forward
 local function HideEntry(name, sub, allRanks, icon, index)
     local entry
     if allRanks then
-        entry = { name = name, icon = icon }
+        entry = { name = name, icon = icon, noRank = (sub == "") or nil }
         db.hidden[AllKey(name)] = entry
         -- rank-specific entries for this spell are redundant now
         for key, other in pairs(db.hidden) do
@@ -419,7 +419,7 @@ local function BuildList()
         if not groups[cat] then groups[cat] = {}; names[#names + 1] = cat end
         local g = groups[cat]
         g[#g + 1] = {
-            key = key, name = entry.name, sub = entry.sub, icon = entry.icon,
+            key = key, name = entry.name, sub = entry.sub, icon = entry.icon, noRank = entry.noRank,
             sortName = entry.name .. (entry.sub or ""),
         }
     end
@@ -564,7 +564,15 @@ local function InitRow(row, data)
     card.data = data
     card.icon:SetTexture(EntryIcon(data))
     card.nameText:SetText(data.name)
-    card.subText:SetText(data.sub and (data.sub .. " only") or "All ranks")
+    local subLabel = data.sub and (data.sub .. " only") or (not data.noRank and "All ranks") or ""
+    card.subText:SetText(subLabel)
+    card.nameText:ClearAllPoints()
+    if subLabel == "" then
+        card.nameText:SetPoint("LEFT", card.iconBG, "RIGHT", 10, 0)
+    else
+        card.nameText:SetPoint("TOPLEFT", card.iconBG, "TOPRIGHT", 10, -3)
+    end
+    card.nameText:SetPoint("RIGHT", card.btn, "LEFT", -8, 0)
     card.btn:SetScript("OnClick", function() RestoreEntry(data.key) end)
 end
 
