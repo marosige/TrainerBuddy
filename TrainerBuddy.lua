@@ -167,17 +167,10 @@ local function ShowContextMenu(button)
     sub = sub or ""
 
     MenuUtil.CreateContextMenu(button, function(owner, root)
-        root:CreateTitle(name .. (sub ~= "" and (" (" .. sub .. ")") or ""))
+        root:CreateTitle(name)
         if IsHidden(name, sub) then
             root:CreateButton("Unhide " .. name, function()
                 UnhideEntry(name, sub)
-            end)
-        elseif sub ~= "" then
-            root:CreateButton("Hide this rank only (" .. sub .. ")", function()
-                HideEntry(name, sub, false, icon, index)
-            end)
-            root:CreateButton("Hide all ranks of " .. name, function()
-                HideEntry(name, sub, true, icon, index)
             end)
         else
             root:CreateButton("Hide " .. name, function()
@@ -564,14 +557,9 @@ local function InitRow(row, data)
     card.data = data
     card.icon:SetTexture(EntryIcon(data))
     card.nameText:SetText(data.name)
-    local subLabel = data.sub and (data.sub .. " only") or (not data.noRank and "All ranks") or ""
-    card.subText:SetText(subLabel)
+    card.subText:SetText("")
     card.nameText:ClearAllPoints()
-    if subLabel == "" then
-        card.nameText:SetPoint("LEFT", card.iconBG, "RIGHT", 10, 0)
-    else
-        card.nameText:SetPoint("TOPLEFT", card.iconBG, "TOPRIGHT", 10, -3)
-    end
+    card.nameText:SetPoint("LEFT", card.iconBG, "RIGHT", 10, 0)
     card.nameText:SetPoint("RIGHT", card.btn, "LEFT", -8, 0)
     card.btn:SetScript("OnClick", function() RestoreEntry(data.key) end)
 end
