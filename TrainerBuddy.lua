@@ -14,10 +14,9 @@ local ADDON = ...
 
 -- Layout tweaks for the Train All button / cost line.
 local TRAINALL_WIDTH  = 84
-local COST_OFFSET_Y   = 3
 
 local db            -- = TrainerBuddyCharDB, set on ADDON_LOADED
-local trainAllButton, costText
+local trainAllButton
 local category      -- Settings category
 local SetAutoReplace, autoCheck  -- forward
 local RefreshPopup               -- forward
@@ -277,17 +276,6 @@ function UpdateTrainAll()
     trainAllButton.affordable = affordable
     trainAllButton:SetEnabled(affordable > 0)
 
-    if #list > 0 then
-        costText:SetText(FormatCost(total, isPet))
-        if total > budget then
-            costText:SetTextColor(1, 0.2, 0.2)
-        else
-            costText:SetTextColor(1, 1, 1)
-        end
-        costText:Show()
-    else
-        costText:Hide()
-    end
 end
 
 local function TrainAll()
@@ -308,9 +296,6 @@ local function CreateTrainAllButton()
     trainAllButton:SetPoint("RIGHT", ClassTrainerTrainButton, "LEFT", 0, 0)
     trainAllButton:SetScript("OnClick", TrainAll)
     trainAllButton:SetMotionScriptsWhileDisabled(true)  -- keep the tooltip when it is greyed out
-
-    costText = trainAllButton:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    costText:SetPoint("BOTTOM", trainAllButton, "TOP", 0, COST_OFFSET_Y)
 
     trainAllButton:SetScript("OnEnter", function(self)
         local list, total, isPet = CollectTrainable()
@@ -353,7 +338,6 @@ local function CreateTrainAllButton()
                 GameTooltip:AddLine("Red entries are skipped: not enough " .. (isPet and "training points." or "gold."), 1, 0.3, 0.3, true)
             end
         end
-        GameTooltip:AddLine("Profession unlocks need the normal Train button.", 0.6, 0.6, 0.6, true)
         GameTooltip:Show()
     end)
     trainAllButton:SetScript("OnLeave", GameTooltip_Hide)
