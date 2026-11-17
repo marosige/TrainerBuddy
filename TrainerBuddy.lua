@@ -701,76 +701,21 @@ local function SafeDecor(what, fn, ...)
     return ok
 end
 
--- The popup is a little book (colors taken from the addon icon): leather
--- cover with a spine and a gold hairline, a noisy parchment page, and the
--- action-bar style slots sitting on the page.
-local NOISE = "Interface\\AddOns\\TrainerBuddy\\noise.tga"
-local COVER_TINT = { 0.62, 0.38, 0.16 }
-local PAGE_TINT  = { 0.98, 0.93, 0.78 }
-local INK        = { 0.10, 0.05, 0.02 }
-local PAGE_L, PAGE_R, PAGE_T, PAGE_B = 20, 9, 9, 9    -- cover thickness around the page
-local PAD_X, TITLE_H = 10, 30
-
-local function Tex(parent, layer, sub, r, g, b, a)
-    local t = parent:CreateTexture(nil, layer, nil, sub)
-    t:SetColorTexture(r, g, b, a or 1)
-    return t
-end
-
-local function NoiseTex(parent, layer, sub, tint)
-    local t = parent:CreateTexture(nil, layer, nil, sub)
-    t:SetTexture(NOISE, "REPEAT", "REPEAT")
-    t:SetHorizTile(true)
-    t:SetVertTile(true)
-    t:SetVertexColor(tint[1], tint[2], tint[3])
-    return t
-end
-
-local function BuildBook(p)
-    -- cover: dark outline, leather noise, spine, gold hairline
-    Tex(p, "BACKGROUND", -8, INK[1], INK[2], INK[3], 1):SetAllPoints()
-    local leather = NoiseTex(p, "BACKGROUND", -7, COVER_TINT)
-    leather:SetPoint("TOPLEFT", 2, -2)
-    leather:SetPoint("BOTTOMRIGHT", -2, 2)
-
-    local spine = Tex(p, "BACKGROUND", -6, 0.25, 0.12, 0.04, 0.55)
-    spine:SetPoint("TOPLEFT", 2, -2)
-    spine:SetPoint("BOTTOMLEFT", 2, 2)
-    spine:SetWidth(PAGE_L - 4)
-    local spineGold = Tex(p, "BACKGROUND", -5, 0.91, 0.71, 0.23, 1)
-    spineGold:SetPoint("TOPLEFT", PAGE_L - 7, -4)
-    spineGold:SetPoint("BOTTOMLEFT", PAGE_L - 7, 4)
-    spineGold:SetWidth(2)
-
-    local hair = { 0.94, 0.76, 0.29, 0.75 }
-    local function Line(a, b, w, h)
-        local t = Tex(p, "BACKGROUND", -4, unpack(hair))
-        t:SetPoint(unpack(a)); t:SetPoint(unpack(b))
-        if w then t:SetWidth(w) end
-        if h then t:SetHeight(h) end
-    end
-    Line({ "TOPLEFT", PAGE_L - 3, -(PAGE_T - 3) }, { "TOPRIGHT", -(PAGE_R - 3), -(PAGE_T - 3) }, nil, 1)
-    Line({ "BOTTOMLEFT", PAGE_L - 3, PAGE_B - 3 }, { "BOTTOMRIGHT", -(PAGE_R - 3), PAGE_B - 3 }, nil, 1)
-    Line({ "TOPLEFT", PAGE_L - 3, -(PAGE_T - 3) }, { "BOTTOMLEFT", PAGE_L - 3, PAGE_B - 3 }, 1, nil)
-    Line({ "TOPRIGHT", -(PAGE_R - 3), -(PAGE_T - 3) }, { "BOTTOMRIGHT", -(PAGE_R - 3), PAGE_B - 3 }, 1, nil)
-
-    -- page: ink outline + parchment noise
-    local pageOutline = Tex(p, "BACKGROUND", -3, INK[1], INK[2], INK[3], 1)
-    pageOutline:SetPoint("TOPLEFT", PAGE_L - 1, -(PAGE_T - 1))
-    pageOutline:SetPoint("BOTTOMRIGHT", -(PAGE_R - 1), PAGE_B - 1)
-    local page = NoiseTex(p, "BACKGROUND", -2, PAGE_TINT)
-    page:SetPoint("TOPLEFT", PAGE_L, -PAGE_T)
-    page:SetPoint("BOTTOMRIGHT", -PAGE_R, PAGE_B)
-    -- a few faint ruled lines near the bottom edge, like page edges in the icon
-    local shade = Tex(p, "BACKGROUND", -1, 0.55, 0.4, 0.16, 0.18)
-    shade:SetPoint("TOPLEFT", PAGE_L, -PAGE_T)
-    shade:SetPoint("BOTTOMLEFT", PAGE_L, PAGE_B)
-    shade:SetWidth(10)
-    return page
-end
+-- The popup is a small Blizzard window, styled like the Spellbook: portrait
+-- frame with the addon logo, title bar, parchment page, and the real action
+-- bar pieces (slots, dividers, border art) on the page.
+local PAPER    = "Interface\\AddOns\\TrainerBuddy\\paper.tga"
+local PORTRAIT = "Interface\\AddOns\\TrainerBuddy\\portrait.tga"
+local FRAME_PAD, TOP_H, BAR_GAP = 14, 66, 10   -- page side padding, title+portrait height, gap above bar
+local dividerPool
 
 local function CreatePopup()
-    popup = CreateFrame("Frame", "TrainerBuddyNewSpells", UIParent)
+    local ok, frame = pcall(CreateFrame, "Frame", "TrainerBuddyNewSpells", UIParent, "PortraitFrameTemplate")
+    if not ok then
+        SafeDecor("window", error, frame, 0)
+        frame = CreateFrame("Frame", "TrainerBuddyNewSpells", UIParent)
+    end
+    popup = frame
     popup:SetFrameStrata("MEDIUM")
     popup:SetClampedToScreen(true)
     popup:SetMovable(true)
@@ -790,30 +735,41 @@ local function CreatePopup()
         db.popupPos = { point, relPoint, x, y }
     end)
 
-    SafeDecor("book art", BuildBook, popup)
-
-    -- title in ink on the page, with a thin rule under it
-    popup.title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    popup.title:SetPoint("TOPLEFT", PAGE_L + PAD_X, -(PAGE_T + 8))
-    popup.title:SetTextColor(0.24, 0.13, 0.05)
-    popup.title:SetText("Place your new spells")
-    local rule = Tex(popup, "ARTWORK", 0, 0.45, 0.3, 0.12, 0.6)
-    rule:SetHeight(1)
-    rule:SetPoint("TOPLEFT", PAGE_L + PAD_X, -(PAGE_T + TITLE_H - 2))
-    rule:SetPoint("TOPRIGHT", -(PAGE_R + PAD_X), -(PAGE_T + TITLE_H - 2))
-
-    popup.close = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
-    popup.close:SetPoint("TOPRIGHT", -(PAGE_R - 1), -(PAGE_T - 1))
-    popup.close:SetScale(0.62)
-    popup.close:SetScript("OnClick", function()
-        wipe(db.newSpells)
-        wipe(testSpells)
-        popup:Hide()
+    SafeDecor("title", function()
+        if popup.SetTitle then popup:SetTitle("Place your new spells")
+        elseif popup.TitleContainer then popup.TitleContainer.TitleText:SetText("Place your new spells") end
+    end)
+    SafeDecor("portrait", function()
+        if popup.SetPortraitToAsset then popup:SetPortraitToAsset(PORTRAIT)
+        elseif popup.PortraitContainer then popup.PortraitContainer.portrait:SetTexture(PORTRAIT) end
+    end)
+    SafeDecor("close button", function()
+        popup.CloseButton:SetScript("OnClick", function()
+            wipe(db.newSpells)
+            wipe(testSpells)
+            popup:Hide()
+        end)
     end)
 
-    -- the slots live on the page
+    -- parchment page under the title bar
+    SafeDecor("paper", function()
+        local paper = popup:CreateTexture(nil, "ARTWORK", nil, -2)
+        paper:SetTexture(PAPER)
+        paper:SetPoint("TOPLEFT", 4, -22)
+        paper:SetPoint("BOTTOMRIGHT", -4, 4)
+    end)
+
+    -- the slots live on the page, framed like the real action bar
     popup.bar = CreateFrame("Frame", nil, popup)
-    popup.bar:SetPoint("TOPLEFT", PAGE_L + PAD_X, -(PAGE_T + TITLE_H + 8))
+    SafeDecor("bar art", function()
+        local art = popup.bar:CreateTexture(nil, "BACKGROUND", nil, -3)
+        art:SetAtlas("UI-HUD-ActionBar-Frame")
+        art:SetPoint("TOPLEFT", -6, 6)
+        art:SetPoint("BOTTOMRIGHT", 4, -5)
+    end)
+    SafeDecor("dividers", function()
+        dividerPool = CreateFramePool("FRAME", popup.bar, "HorizontalDividerTemplate")
+    end)
     popup:Hide()
 end
 
@@ -922,11 +878,29 @@ function RefreshPopup()
     local barW = cols * (ICON_SIZE + ICON_GAP) - ICON_GAP
     local barH = rows * (ICON_SIZE + ICON_GAP) - ICON_GAP
     popup.bar:SetSize(barW, barH)
-    local inner = math.max(barW, 150)   -- keep the title readable on a small bar
-    popup:SetSize(PAGE_L + PAGE_R + 2 * PAD_X + inner,
-                  PAGE_T + PAGE_B + TITLE_H + 8 + barH + PAD_X)
+    local width = math.max(barW + 2 * FRAME_PAD, 236)   -- wide enough for the title
+    popup:SetSize(width, TOP_H + BAR_GAP + barH + FRAME_PAD)
     popup.bar:ClearAllPoints()
-    popup.bar:SetPoint("TOP", popup, "TOPLEFT", PAGE_L + PAD_X + inner / 2, -(PAGE_T + TITLE_H + 8))
+    popup.bar:SetPoint("TOP", popup, "TOP", 0, -(TOP_H + BAR_GAP))
+
+    -- the golden dividers between neighbouring slots (single row only, like the real bar)
+    if dividerPool then
+        SafeDecor("dividers", function()
+            dividerPool:ReleaseAll()
+            if rows == 1 then
+                for i = 2, slots do
+                    local b = popupButtons[i]
+                    local d = dividerPool:Acquire()
+                    d:ClearAllPoints()
+                    d:SetPoint("TOP", b, "TOP", 0, 0)
+                    d:SetPoint("BOTTOM", b, "BOTTOM", 0, 0)
+                    d:SetPoint("RIGHT", b, "LEFT", 5, 0)
+                    d:SetFrameLevel(b:GetFrameLevel() + 2)
+                    d:Show()
+                end
+            end
+        end)
+    end
     popup:Show()
 end
 
