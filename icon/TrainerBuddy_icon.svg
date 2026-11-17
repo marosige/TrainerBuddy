@@ -53,10 +53,7 @@
     <rect width="512" height="512" fill="url(#bg)"/>
     <rect width="512" height="512" filter="url(#mottle)" opacity="0.55"/>
 
-    <!-- shadow -->
-    <ellipse cx="258" cy="462" rx="150" ry="18" fill="#000" opacity="0.45"/>
-
-    <g transform="translate(26 -22) scale(1.0) rotate(-9 256 256)">
+    <g transform="translate(5.0 -31.0) scale(1.09) rotate(-9 256 256)">
 
       <!-- page block: its left end is cut by the spine's bottom curve -->
       <path d="M130 412 L376 412 L344 444 L60 444 Z" clip-path="url(#pageclip)" fill="url(#pages)" stroke="#1a0d05" stroke-width="11" stroke-linejoin="round"/>
