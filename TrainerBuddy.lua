@@ -1,19 +1,18 @@
 --[[
 Trainer Buddy
-  * Right-click an entry in the class / profession trainer window:
-      - hide this rank only
-      - hide every rank of that spell / recipe
-  * Hidden entries disappear from the trainer list.
+  * Right-click an entry in the class / pet / profession trainer window to
+    hide it (all ranks) or unhide it. Hidden entries disappear from the list.
   * "Train All" button left of the "Train" button. Skips hidden entries,
-    shows the total price and buys as many as you can afford.
-  * Settings > AddOns > Trainer Buddy (or /tb) lists everything you
-    hid, with an Unhide button per entry.
+    shows the total price in its tooltip and buys as many as you can afford.
+  * Settings > AddOns > Trainer Buddy (or /tb): options, plus every hidden
+    entry grouped by trainer, with an Unhide button per entry.
+  * Optional: upgrade action bar spells to the new rank after training, and
+    a popup bar for newly learned spells.
 ]]
 
 local ADDON = ...
 
--- Layout tweaks for the Train All button / cost line.
-local TRAINALL_WIDTH  = 84
+local TRAINALL_WIDTH = 84  -- width of the Train All button
 
 local db            -- = TrainerBuddyCharDB, set on ADDON_LOADED
 local trainAllButton
@@ -25,14 +24,9 @@ local RefreshPopup               -- forward
 -- Hidden list
 ---------------------------------------------------------------------------
 
-local function AllKey(name)        return "A:" .. name end
-local function RankKey(name, sub)  return "R:" .. name .. "|" .. sub end
-
-local function IsHidden(name, sub)
-    if not name or not db then return false end
-    if db.hidden[AllKey(name)] then return true end
-    if sub and sub ~= "" and db.hidden[RankKey(name, sub)] then return true end
-    return false
+-- db.hidden is keyed by spell / recipe name (all ranks are hidden together)
+local function IsHidden(name)
+    return name ~= nil and db ~= nil and db.hidden[name] ~= nil
 end
 
 local function CountHidden()
@@ -82,7 +76,6 @@ end
 local function Backfill(entry, texture, index)
     if not entry then return end
     if not entry.icon and texture then entry.icon = texture end
-    if not entry.category and index then entry.category = GetCategory(index) end
     CaptureTooltip(entry, index)
 end
 
@@ -103,9 +96,9 @@ local function ApplyFilter()
         for _, node in dp:EnumerateEntireRange() do
             local data = node:GetData()
             if data and data.skillIndex then
-                local name, _, texture, _, sub = GetTrainerServiceInfo(data.skillIndex)
-                if IsHidden(name, sub) then
-                    Backfill(db.hidden[AllKey(name)] or db.hidden[RankKey(name, sub or "")], texture, data.skillIndex)
+                local name, _, texture = GetTrainerServiceInfo(data.skillIndex)
+                if IsHidden(name) then
+                    Backfill(db.hidden[name], texture, data.skillIndex)
                     toRemove = toRemove or {}
                     toRemove[#toRemove + 1] = node
                 end
@@ -132,49 +125,34 @@ end
 
 local RefreshOptions  -- forward
 
-local function HideEntry(name, sub, allRanks, icon, index)
-    local entry
-    if allRanks then
-        entry = { name = name, icon = icon, noRank = (sub == "") or nil }
-        db.hidden[AllKey(name)] = entry
-        -- rank-specific entries for this spell are redundant now
-        for key, other in pairs(db.hidden) do
-            if other.name == name and other.sub then
-                db.hidden[key] = nil
-            end
-        end
-    else
-        entry = { name = name, sub = sub, icon = icon }
-        db.hidden[RankKey(name, sub)] = entry
-    end
-    entry.category = index and GetCategory(index) or nil
+local function HideEntry(name, icon, index)
+    local entry = { name = name, icon = icon, category = GetCategory(index) }
+    db.hidden[name] = entry
     CaptureTooltip(entry, index)
     RefreshTrainer()
     RefreshOptions()
 end
 
-local function UnhideEntry(name, sub)
-    db.hidden[AllKey(name)] = nil
-    db.hidden[RankKey(name, sub)] = nil
+local function UnhideEntry(name)
+    db.hidden[name] = nil
     RefreshTrainer()
     RefreshOptions()
 end
 
 local function ShowContextMenu(button)
     local index = button:GetID()
-    local name, _, icon, _, sub = GetTrainerServiceInfo(index)
+    local name, _, icon = GetTrainerServiceInfo(index)
     if not name then return end
-    sub = sub or ""
 
     MenuUtil.CreateContextMenu(button, function(owner, root)
         root:CreateTitle(name)
-        if IsHidden(name, sub) then
+        if IsHidden(name) then
             root:CreateButton("Unhide " .. name, function()
-                UnhideEntry(name, sub)
+                UnhideEntry(name)
             end)
         else
             root:CreateButton("Hide " .. name, function()
-                HideEntry(name, sub, true, icon, index)
+                HideEntry(name, icon, index)
             end)
         end
         root:CreateDivider()
@@ -206,8 +184,8 @@ local function DecorateButton(button)
     if button == ClassTrainerFrame.skillStepButton then return end
     HookSkillButton(button)
     if db.showHidden then
-        local name, _, _, _, sub = GetTrainerServiceInfo(button:GetID())
-        if IsHidden(name, sub) then
+        local name = GetTrainerServiceInfo(button:GetID())
+        if IsHidden(name) then
             button.name:SetText((button.name:GetText() or name) .. "  |cffb08cff(hidden)|r")
         end
     end
@@ -226,7 +204,7 @@ local function CollectTrainable()
     for i = 1, GetNumTrainerServices() do
         if i ~= stepIndex then
             local name, serviceType, _, _, sub = GetTrainerServiceInfo(i)
-            if serviceType == "available" and not IsHidden(name, sub) then
+            if serviceType == "available" and not IsHidden(name) then
                 local cost, isProfession = GetTrainerServiceCost(i)
                 -- learning a profession itself needs a confirmation: leave it manual
                 if not isProfession then
@@ -412,8 +390,7 @@ local function BuildList()
         if not groups[cat] then groups[cat] = {}; names[#names + 1] = cat end
         local g = groups[cat]
         g[#g + 1] = {
-            key = key, name = entry.name, sub = entry.sub, icon = entry.icon, noRank = entry.noRank,
-            sortName = entry.name .. (entry.sub or ""),
+            key = key, name = entry.name, icon = entry.icon,
         }
     end
     -- class first, pets next, then professions alphabetically, unknown last
@@ -432,7 +409,7 @@ local function BuildList()
     local list = {}
     for _, cat in ipairs(names) do
         local g = groups[cat]
-        table.sort(g, function(x, y) return x.sortName < y.sortName end)
+        table.sort(g, function(x, y) return x.name < y.name end)
         list[#list + 1] = { header = true, category = cat, count = #g }
         if not db.collapsed[cat] then
             for _, item in ipairs(g) do list[#list + 1] = item end
@@ -487,7 +464,6 @@ local function ShowEntryTooltip(card)
             GameTooltip:SetSpellByID(info.spellID)
         else
             GameTooltip:AddLine(d.name, 1, 1, 1)
-            if d.sub then GameTooltip:AddLine(d.sub) end
             GameTooltip:AddLine("Open this trainer once to load the description.", 0.6, 0.6, 0.6, true)
         end
     end
@@ -532,14 +508,10 @@ local function InitRow(row, data)
         card.btn:SetText("Unhide")
 
         card.nameText = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        card.nameText:SetPoint("TOPLEFT", card.iconBG, "TOPRIGHT", 10, -3)
+                card.nameText:SetPoint("LEFT", card.iconBG, "RIGHT", 10, 0)
         card.nameText:SetPoint("RIGHT", card.btn, "LEFT", -8, 0)
         card.nameText:SetJustifyH("LEFT")
         card.nameText:SetWordWrap(false)
-        card.subText = card:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        card.subText:SetPoint("TOPLEFT", card.nameText, "BOTTOMLEFT", 0, -3)
-        card.subText:SetJustifyH("LEFT")
-        card.subText:SetTextColor(0.65, 0.65, 0.65)
 
         card:SetScript("OnEnter", function(self)
             self:SetBackdropColor(0.14, 0.12, 0.06, 0.95)
@@ -557,10 +529,6 @@ local function InitRow(row, data)
     card.data = data
     card.icon:SetTexture(EntryIcon(data))
     card.nameText:SetText(data.name)
-    card.subText:SetText("")
-    card.nameText:ClearAllPoints()
-    card.nameText:SetPoint("LEFT", card.iconBG, "RIGHT", 10, 0)
-    card.nameText:SetPoint("RIGHT", card.btn, "LEFT", -8, 0)
     card.btn:SetScript("OnClick", function() RestoreEntry(data.key) end)
 end
 
@@ -920,11 +888,7 @@ f:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON then
-        -- settings were called HideTrainerCharDB before the rename: carry them over
-        if not TrainerBuddyCharDB then
-            TrainerBuddyCharDB = HideTrainerCharDB or {}
-        end
-        HideTrainerCharDB = nil
+        TrainerBuddyCharDB = TrainerBuddyCharDB or {}
         db = TrainerBuddyCharDB
         db.hidden = db.hidden or {}
         if db.autoReplace == nil then db.autoReplace = true end

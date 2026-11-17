@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Trainer Buddy
 ## Notes: Right-click trainer entries to hide them for good. Adds a "Train All" button that skips hidden entries and shows the total cost.
-## Version: 1.4.3
-## SavedVariablesPerCharacter: TrainerBuddyCharDB, HideTrainerCharDB
+## Version: 1.5.0
+## SavedVariablesPerCharacter: TrainerBuddyCharDB
 ## Category: Interface Enhancements
 ## IconTexture: Interface\AddOns\TrainerBuddy\icon.tga
 
