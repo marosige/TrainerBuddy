@@ -655,7 +655,7 @@ end
 ---------------------------------------------------------------------------
 
 local MAX_ACTION_SLOT = 180
-local ICON_SIZE, ICON_GAP, PER_ROW, MIN_SLOTS = 45, 2, 6, 6
+local ICON_SIZE, ICON_GAP, PER_ROW = 45, 2, 6
 local popup, popupButtons = nil, {}
 local testSpells = {}   -- /tb test: shown even if already on a bar, never saved
 
@@ -856,8 +856,8 @@ function RefreshPopup()
         return
     end
 
-    -- at least MIN_SLOTS slots; extra spells extend the bar to the right
-    local slots = math.max(#list, MIN_SLOTS)
+    -- always whole rows of PER_ROW slots; empty ones are drawn as empty slots
+    local slots = math.max(math.ceil(#list / PER_ROW), 1) * PER_ROW   -- always full rows
     for i = 1, slots do
         local b = GetButton(i)
         local col, row = (i - 1) % PER_ROW, math.floor((i - 1) / PER_ROW)
