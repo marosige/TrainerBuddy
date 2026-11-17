@@ -659,6 +659,16 @@ local ICON_SIZE, ICON_GAP, PER_ROW = 45, 2, 6
 local popup, popupButtons = nil, {}
 local testSpells = {}   -- /tb test: shown even if already on a bar, never saved
 local testActive = false  -- /tb test keeps the popup open even with no spells
+local layout = {}   -- fixed slot positions: spellID or false (placed spells leave a hole)
+
+local function BarCount(spellID)
+    local n = 0
+    for slot = 1, MAX_ACTION_SLOT do
+        local actionType, id = GetActionInfo(slot)
+        if actionType == "spell" and id == spellID then n = n + 1 end
+    end
+    return n
+end
 
 local function IsOnBar(spellID)
     for slot = 1, MAX_ACTION_SLOT do
@@ -749,6 +759,7 @@ local function CreatePopup()
         popup.CloseButton:SetScript("OnClick", function()
             wipe(db.newSpells)
             wipe(testSpells)
+            wipe(layout)
             testActive = false
             popup:Hide()
         end)
@@ -835,37 +846,66 @@ function RefreshPopup()
     if not db then return end
     if not popup then CreatePopup() end
 
-    -- drop spells that are placed (or no longer valid)
-    local list = {}
+    -- spells still waiting to be placed
+    local valid = {}
     for spellID in pairs(db.newSpells) do
         if IsPlaceable(spellID) and not IsOnBar(spellID) then
-            list[#list + 1] = spellID
+            valid[spellID] = true
         else
             db.newSpells[spellID] = nil
         end
     end
-    for spellID in pairs(testSpells) do
-        if not db.newSpells[spellID] and IsPlaceable(spellID) then
-            list[#list + 1] = spellID
+    for spellID, baseline in pairs(testSpells) do
+        -- a test spell counts as placed once it appears on one more bar slot
+        if IsPlaceable(spellID) and BarCount(spellID) <= baseline then valid[spellID] = true end
+    end
+
+    -- placed spells leave a hole; nothing else moves
+    local hadAny, placed = false, {}
+    for i = 1, #layout do
+        local id = layout[i]
+        if id then
+            hadAny = true
+            if valid[id] then placed[id] = true else layout[i] = false end
         end
     end
-    table.sort(list, function(a, b)
+    local fresh = {}
+    for id in pairs(valid) do
+        if not placed[id] then fresh[#fresh + 1] = id end
+    end
+    table.sort(fresh, function(a, b)
         return (C_Spell.GetSpellName(a) or "") < (C_Spell.GetSpellName(b) or "")
     end)
+    for _, id in ipairs(fresh) do
+        local put = false
+        for i = 1, #layout do
+            if not layout[i] then layout[i] = id; put = true; break end
+        end
+        if not put then layout[#layout + 1] = id end
+    end
 
-    if not (db.showPopup or testActive) or (#list == 0 and not testActive) then
+    -- everything placed: the window goes away on its own
+    if next(valid) == nil and hadAny then
+        wipe(layout)
+        wipe(testSpells)
+        testActive = false
+    end
+    if next(valid) == nil and #layout > 0 then wipe(layout) end
+
+    if not (db.showPopup or testActive) or (next(valid) == nil and not testActive) then
         popup:Hide()
         return
     end
+    local list = layout
 
     -- always whole rows of PER_ROW slots; empty ones are drawn as empty slots
-    local slots = math.max(math.ceil(#list / PER_ROW), 1) * PER_ROW   -- always full rows
+    local slots = math.max(math.ceil(#layout / PER_ROW), 1) * PER_ROW   -- never shrinks while spells remain
     for i = 1, slots do
         local b = GetButton(i)
         local col, row = (i - 1) % PER_ROW, math.floor((i - 1) / PER_ROW)
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", popup.bar, "TOPLEFT", col * (ICON_SIZE + ICON_GAP), -row * (ICON_SIZE + ICON_GAP))
-        local spellID = list[i]
+        local spellID = list[i] or nil
         b.spellID = spellID
         local filled = spellID ~= nil
         if filled then b.icon:SetTexture(C_Spell.GetSpellTexture(spellID)) end
@@ -924,6 +964,7 @@ end
 local function TestPopup(count)
     -- always replaces the previous test; no number = empty popup (like 0). Close it with the X.
     wipe(testSpells)
+    wipe(layout)
     testActive = true
     count = tonumber(count) or 0
     local pool, seen = {}, {}
@@ -937,7 +978,8 @@ local function TestPopup(count)
     count = math.min(math.max(count, 0), #pool)
     for _ = 1, count do
         local i = math.random(#pool)
-        testSpells[table.remove(pool, i)] = true
+        local id = table.remove(pool, i)
+        testSpells[id] = BarCount(id)
     end
     RefreshPopup()
     print(("|cff66ccffTrainer Buddy|r: test popup with %d spell(s). Close it with the X."):format(count))
