@@ -67,9 +67,22 @@ local function CaptureTooltip(entry, index)
     if #lines > 0 then entry.lines = lines end
 end
 
+-- Which group a trainer entry belongs to: class, pet, or the profession's name.
+local function GetCategory(index)
+    local ttype = C_Trainer and C_Trainer.GetTrainerType and C_Trainer.GetTrainerType()
+    if ttype == Enum.TrainerType.Pet then return "Pet trainer" end
+    if ttype == Enum.TrainerType.Tradeskills then
+        local ok, line = pcall(GetTrainerServiceSkillLine, index)
+        if ok and type(line) == "string" and line ~= "" then return line end
+        return "Professions"
+    end
+    return "Class trainer"
+end
+
 local function Backfill(entry, texture, index)
     if not entry then return end
     if not entry.icon and texture then entry.icon = texture end
+    if not entry.category and index then entry.category = GetCategory(index) end
     CaptureTooltip(entry, index)
 end
 
@@ -134,6 +147,7 @@ local function HideEntry(name, sub, allRanks, icon, index)
         entry = { name = name, sub = sub, icon = icon }
         db.hidden[RankKey(name, sub)] = entry
     end
+    entry.category = index and GetCategory(index) or nil
     CaptureTooltip(entry, index)
     RefreshTrainer()
     RefreshOptions()
@@ -395,15 +409,42 @@ end
 
 local scrollBox, emptyText
 
+local OTHER = "Other"
+local HEADER_HEIGHT = 30
+
 local function BuildList()
-    local list = {}
+    local groups, names = {}, {}
     for key, entry in pairs(db.hidden) do
-        list[#list + 1] = {
+        local cat = entry.category or OTHER
+        if not groups[cat] then groups[cat] = {}; names[#names + 1] = cat end
+        local g = groups[cat]
+        g[#g + 1] = {
             key = key, name = entry.name, sub = entry.sub, icon = entry.icon,
             sortName = entry.name .. (entry.sub or ""),
         }
     end
-    table.sort(list, function(a, b) return a.sortName < b.sortName end)
+    -- class first, pets next, then professions alphabetically, unknown last
+    local function rank(c)
+        if c == "Class trainer" then return 1 end
+        if c == "Pet trainer" then return 2 end
+        if c == OTHER then return 4 end
+        return 3
+    end
+    table.sort(names, function(x, y)
+        if rank(x) ~= rank(y) then return rank(x) < rank(y) end
+        return x < y
+    end)
+
+    db.collapsed = db.collapsed or {}
+    local list = {}
+    for _, cat in ipairs(names) do
+        local g = groups[cat]
+        table.sort(g, function(x, y) return x.sortName < y.sortName end)
+        list[#list + 1] = { header = true, category = cat, count = #g }
+        if not db.collapsed[cat] then
+            for _, item in ipairs(g) do list[#list + 1] = item end
+        end
+    end
     return list
 end
 
@@ -527,6 +568,35 @@ local function InitRow(row, data)
     card.btn:SetScript("OnClick", function() RestoreEntry(data.key) end)
 end
 
+local function InitHeader(row, data)
+    if not row.label then
+        row:SetHeight(HEADER_HEIGHT)
+        local btn = CreateFrame("Button", nil, row)
+        btn:SetPoint("TOPLEFT", 6, -2)
+        btn:SetSize(CARD_WIDTH, HEADER_HEIGHT - 4)
+        row.btn = btn
+        local bg = btn:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(1, 0.82, 0, 0.08)
+        row.arrow = btn:CreateTexture(nil, "ARTWORK")
+        row.arrow:SetSize(14, 14)
+        row.arrow:SetPoint("LEFT", 8, 0)
+        row.label = btn:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        row.label:SetPoint("LEFT", row.arrow, "RIGHT", 6, 0)
+        local hl = btn:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints()
+        hl:SetColorTexture(1, 1, 1, 0.08)
+    end
+    local collapsed = db.collapsed and db.collapsed[data.category]
+    row.arrow:SetTexture(collapsed and "Interface\\Buttons\\UI-PlusButton-Up" or "Interface\\Buttons\\UI-MinusButton-Up")
+    row.label:SetText(data.category .. "  |cffaaaaaa(" .. data.count .. ")|r")
+    row.btn:SetScript("OnClick", function()
+        db.collapsed = db.collapsed or {}
+        db.collapsed[data.category] = not db.collapsed[data.category] or nil
+        RefreshOptions()
+    end)
+end
+
 local function BuildOptions()
     local panel = CreateFrame("Frame")
     panel.name = "Trainer Buddy"
@@ -592,10 +662,16 @@ local function BuildOptions()
     scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 6, 0)
 
     local view = CreateScrollBoxListLinearView()
-    view:SetElementExtent(ROW_HEIGHT)
+    view:SetElementExtentCalculator(function(index, elementData)
+        return elementData.header and HEADER_HEIGHT or ROW_HEIGHT
+    end)
     view:SetPadding(0, 0, 0, 0, 2)
     view:SetElementFactory(function(factory, elementData)
-        factory("Button", InitRow)
+        if elementData.header then
+            factory("Frame", InitHeader)
+        else
+            factory("Button", InitRow)
+        end
     end)
     ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
 
