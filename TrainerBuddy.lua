@@ -689,11 +689,9 @@ local function HasAtlas(name)
     return type(name) == "string" and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
 end
 
-local HEADER_H, PAD = 26, 12
-local dividerPool
 local decorWarned
 
--- Decorations (bar art, dividers) must never break the popup itself: report once and carry on.
+-- Decorations must never break the popup itself: report once and carry on.
 local function SafeDecor(what, fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok and not decorWarned then
@@ -701,6 +699,74 @@ local function SafeDecor(what, fn, ...)
         print("|cff66ccffTrainer Buddy|r: popup " .. what .. " failed: " .. tostring(err))
     end
     return ok
+end
+
+-- The popup is a little book (colors taken from the addon icon): leather
+-- cover with a spine and a gold hairline, a noisy parchment page, and the
+-- action-bar style slots sitting on the page.
+local NOISE = "Interface\\AddOns\\TrainerBuddy\\noise.tga"
+local COVER_TINT = { 0.62, 0.38, 0.16 }
+local PAGE_TINT  = { 0.98, 0.93, 0.78 }
+local INK        = { 0.10, 0.05, 0.02 }
+local PAGE_L, PAGE_R, PAGE_T, PAGE_B = 20, 9, 9, 9    -- cover thickness around the page
+local PAD_X, TITLE_H = 10, 30
+
+local function Tex(parent, layer, sub, r, g, b, a)
+    local t = parent:CreateTexture(nil, layer, nil, sub)
+    t:SetColorTexture(r, g, b, a or 1)
+    return t
+end
+
+local function NoiseTex(parent, layer, sub, tint)
+    local t = parent:CreateTexture(nil, layer, nil, sub)
+    t:SetTexture(NOISE, "REPEAT", "REPEAT")
+    t:SetHorizTile(true)
+    t:SetVertTile(true)
+    t:SetVertexColor(tint[1], tint[2], tint[3])
+    return t
+end
+
+local function BuildBook(p)
+    -- cover: dark outline, leather noise, spine, gold hairline
+    Tex(p, "BACKGROUND", -8, INK[1], INK[2], INK[3], 1):SetAllPoints()
+    local leather = NoiseTex(p, "BACKGROUND", -7, COVER_TINT)
+    leather:SetPoint("TOPLEFT", 2, -2)
+    leather:SetPoint("BOTTOMRIGHT", -2, 2)
+
+    local spine = Tex(p, "BACKGROUND", -6, 0.25, 0.12, 0.04, 0.55)
+    spine:SetPoint("TOPLEFT", 2, -2)
+    spine:SetPoint("BOTTOMLEFT", 2, 2)
+    spine:SetWidth(PAGE_L - 4)
+    local spineGold = Tex(p, "BACKGROUND", -5, 0.91, 0.71, 0.23, 1)
+    spineGold:SetPoint("TOPLEFT", PAGE_L - 7, -4)
+    spineGold:SetPoint("BOTTOMLEFT", PAGE_L - 7, 4)
+    spineGold:SetWidth(2)
+
+    local hair = { 0.94, 0.76, 0.29, 0.75 }
+    local function Line(a, b, w, h)
+        local t = Tex(p, "BACKGROUND", -4, unpack(hair))
+        t:SetPoint(unpack(a)); t:SetPoint(unpack(b))
+        if w then t:SetWidth(w) end
+        if h then t:SetHeight(h) end
+    end
+    Line({ "TOPLEFT", PAGE_L - 3, -(PAGE_T - 3) }, { "TOPRIGHT", -(PAGE_R - 3), -(PAGE_T - 3) }, nil, 1)
+    Line({ "BOTTOMLEFT", PAGE_L - 3, PAGE_B - 3 }, { "BOTTOMRIGHT", -(PAGE_R - 3), PAGE_B - 3 }, nil, 1)
+    Line({ "TOPLEFT", PAGE_L - 3, -(PAGE_T - 3) }, { "BOTTOMLEFT", PAGE_L - 3, PAGE_B - 3 }, 1, nil)
+    Line({ "TOPRIGHT", -(PAGE_R - 3), -(PAGE_T - 3) }, { "BOTTOMRIGHT", -(PAGE_R - 3), PAGE_B - 3 }, 1, nil)
+
+    -- page: ink outline + parchment noise
+    local pageOutline = Tex(p, "BACKGROUND", -3, INK[1], INK[2], INK[3], 1)
+    pageOutline:SetPoint("TOPLEFT", PAGE_L - 1, -(PAGE_T - 1))
+    pageOutline:SetPoint("BOTTOMRIGHT", -(PAGE_R - 1), PAGE_B - 1)
+    local page = NoiseTex(p, "BACKGROUND", -2, PAGE_TINT)
+    page:SetPoint("TOPLEFT", PAGE_L, -PAGE_T)
+    page:SetPoint("BOTTOMRIGHT", -PAGE_R, PAGE_B)
+    -- a few faint ruled lines near the bottom edge, like page edges in the icon
+    local shade = Tex(p, "BACKGROUND", -1, 0.55, 0.4, 0.16, 0.18)
+    shade:SetPoint("TOPLEFT", PAGE_L, -PAGE_T)
+    shade:SetPoint("BOTTOMLEFT", PAGE_L, PAGE_B)
+    shade:SetWidth(10)
+    return page
 end
 
 local function CreatePopup()
@@ -724,24 +790,20 @@ local function CreatePopup()
         db.popupPos = { point, relPoint, x, y }
     end)
 
-    -- header: a slim strip drawn with the same border art as the bar below
-    local header = CreateFrame("Frame", nil, popup)
-    popup.header = header
-    header:SetPoint("TOPLEFT", PAD, -6)
-    header:SetPoint("TOPRIGHT", -PAD, -6)
-    header:SetHeight(HEADER_H)
-    SafeDecor("header art", function()
-        local art = header:CreateTexture(nil, "BACKGROUND", nil, -3)
-        art:SetAtlas("UI-HUD-ActionBar-Frame")
-        art:SetPoint("TOPLEFT", -6, 6)
-        art:SetPoint("BOTTOMRIGHT", 4, -5)
-    end)
-    popup.title = header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    popup.title:SetPoint("LEFT", 10, 0)
-    popup.title:SetText("Place your new spells")
+    SafeDecor("book art", BuildBook, popup)
 
-    popup.close = CreateFrame("Button", nil, header, "UIPanelCloseButton")
-    popup.close:SetPoint("RIGHT", -2, 0)
+    -- title in ink on the page, with a thin rule under it
+    popup.title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    popup.title:SetPoint("TOPLEFT", PAGE_L + PAD_X, -(PAGE_T + 8))
+    popup.title:SetTextColor(0.24, 0.13, 0.05)
+    popup.title:SetText("Place your new spells")
+    local rule = Tex(popup, "ARTWORK", 0, 0.45, 0.3, 0.12, 0.6)
+    rule:SetHeight(1)
+    rule:SetPoint("TOPLEFT", PAGE_L + PAD_X, -(PAGE_T + TITLE_H - 2))
+    rule:SetPoint("TOPRIGHT", -(PAGE_R + PAD_X), -(PAGE_T + TITLE_H - 2))
+
+    popup.close = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
+    popup.close:SetPoint("TOPRIGHT", -(PAGE_R - 1), -(PAGE_T - 1))
     popup.close:SetScale(0.62)
     popup.close:SetScript("OnClick", function()
         wipe(db.newSpells)
@@ -749,20 +811,9 @@ local function CreatePopup()
         popup:Hide()
     end)
 
-    -- the bar itself: the real action bar's border art, slots and dividers
+    -- the slots live on the page
     popup.bar = CreateFrame("Frame", nil, popup)
-    popup.bar:SetPoint("TOPLEFT", popup.header, "BOTTOMLEFT", 0, -14)
-    SafeDecor("bar art", function()
-        if HasAtlas("UI-HUD-ActionBar-Frame") then
-            local art = popup.bar:CreateTexture(nil, "BACKGROUND", nil, -3)
-            art:SetAtlas("UI-HUD-ActionBar-Frame")
-            art:SetPoint("TOPLEFT", -6, 6)
-            art:SetPoint("BOTTOMRIGHT", 4, -5)
-        end
-    end)
-    SafeDecor("dividers", function()
-        dividerPool = CreateFramePool("FRAME", popup.bar, "HorizontalDividerTemplate")
-    end)
+    popup.bar:SetPoint("TOPLEFT", PAGE_L + PAD_X, -(PAGE_T + TITLE_H + 8))
     popup:Hide()
 end
 
@@ -871,29 +922,11 @@ function RefreshPopup()
     local barW = cols * (ICON_SIZE + ICON_GAP) - ICON_GAP
     local barH = rows * (ICON_SIZE + ICON_GAP) - ICON_GAP
     popup.bar:SetSize(barW, barH)
-    local width = math.max(barW, 170)
+    local inner = math.max(barW, 150)   -- keep the title readable on a small bar
+    popup:SetSize(PAGE_L + PAGE_R + 2 * PAD_X + inner,
+                  PAGE_T + PAGE_B + TITLE_H + 8 + barH + PAD_X)
     popup.bar:ClearAllPoints()
-    popup.bar:SetPoint("TOP", popup.header, "BOTTOM", 0, -14)
-    popup:SetSize(width + 2 * PAD, 6 + HEADER_H + 14 + barH + PAD)
-
-    -- the golden dividers between neighbouring slots (single row only, like the real bar)
-    if dividerPool then
-        SafeDecor("dividers", function()
-            dividerPool:ReleaseAll()
-            if rows == 1 then
-                for i = 2, slots do
-                    local b = popupButtons[i]
-                    local d = dividerPool:Acquire()
-                    d:ClearAllPoints()
-                    d:SetPoint("TOP", b, "TOP", 0, 0)
-                    d:SetPoint("BOTTOM", b, "BOTTOM", 0, 0)
-                    d:SetPoint("RIGHT", b, "LEFT", 5, 0)
-                    d:SetFrameLevel(b:GetFrameLevel() + 2)
-                    d:Show()
-                end
-            end
-        end)
-    end
+    popup.bar:SetPoint("TOP", popup, "TOPLEFT", PAGE_L + PAD_X + inner / 2, -(PAGE_T + TITLE_H + 8))
     popup:Show()
 end
 
