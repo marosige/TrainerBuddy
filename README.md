@@ -23,7 +23,7 @@ Copy this folder into `_forever_/Interface/AddOns/` and name it `TrainerBuddy`, 
 | `/tb`, `/trainerbuddy` | open the settings / hidden list |
 | `/tb auto` | toggle action bar auto-upgrade |
 | `/tb popup` | toggle the new-spells popup |
-| `/tb test [count]` | fill the popup with random spells from your action bars to preview it (run again to clear) |
+| `/tb test [count]` | preview the popup with `count` random spells from your action bars (no number: empty popup). Calling it again replaces the preview; close it with the X |
 | `/tb help` | list all commands |
 
 ## Notes

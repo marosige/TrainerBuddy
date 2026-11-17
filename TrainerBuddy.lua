@@ -658,6 +658,7 @@ local MAX_ACTION_SLOT = 180
 local ICON_SIZE, ICON_GAP, PER_ROW = 45, 2, 6
 local popup, popupButtons = nil, {}
 local testSpells = {}   -- /tb test: shown even if already on a bar, never saved
+local testActive = false  -- /tb test keeps the popup open even with no spells
 
 local function IsOnBar(spellID)
     for slot = 1, MAX_ACTION_SLOT do
@@ -748,6 +749,7 @@ local function CreatePopup()
         popup.CloseButton:SetScript("OnClick", function()
             wipe(db.newSpells)
             wipe(testSpells)
+            testActive = false
             popup:Hide()
         end)
     end)
@@ -851,7 +853,7 @@ function RefreshPopup()
         return (C_Spell.GetSpellName(a) or "") < (C_Spell.GetSpellName(b) or "")
     end)
 
-    if #list == 0 or not (db.showPopup or next(testSpells)) then
+    if not (db.showPopup or testActive) or (#list == 0 and not testActive) then
         popup:Hide()
         return
     end
@@ -920,12 +922,10 @@ end
 -- /tb test [count]: fill the popup with random spells from your action bars,
 -- so you can look at it without learning anything. Run again to clear it.
 local function TestPopup(count)
-    if next(testSpells) then
-        wipe(testSpells)
-        RefreshPopup()
-        print("|cff66ccffTrainer Buddy|r: test popup cleared")
-        return
-    end
+    -- always replaces the previous test; no number = empty popup (like 0). Close it with the X.
+    wipe(testSpells)
+    testActive = true
+    count = tonumber(count) or 0
     local pool, seen = {}, {}
     for slot = 1, MAX_ACTION_SLOT do
         local actionType, id = GetActionInfo(slot)
@@ -934,17 +934,13 @@ local function TestPopup(count)
             pool[#pool + 1] = id
         end
     end
-    if #pool == 0 then
-        print("|cff66ccffTrainer Buddy|r: no spells found on your action bars to use for the test")
-        return
-    end
-    count = math.min(math.max(tonumber(count) or 5, 1), #pool)
+    count = math.min(math.max(count, 0), #pool)
     for _ = 1, count do
         local i = math.random(#pool)
         testSpells[table.remove(pool, i)] = true
     end
     RefreshPopup()
-    print(("|cff66ccffTrainer Buddy|r: showing %d random spells. Run /tb test again to clear."):format(count))
+    print(("|cff66ccffTrainer Buddy|r: test popup with %d spell(s). Close it with the X."):format(count))
 end
 
 local function AddToPopup(spellID)
@@ -1082,7 +1078,7 @@ local function PrintHelp()
     print("  " .. c .. "/tb|r - open the settings and hidden list")
     print("  " .. c .. "/tb auto|r - toggle action bar auto-upgrade")
     print("  " .. c .. "/tb popup|r - toggle the new spells popup")
-    print("  " .. c .. "/tb test [count]|r - preview the popup with random spells (again to clear)")
+    print("  " .. c .. "/tb test [count]|r - preview the popup with N random spells (no number: empty)")
     print("  " .. c .. "/tb help|r - this list")
 end
 
