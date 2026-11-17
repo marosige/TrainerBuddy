@@ -42,6 +42,38 @@ local function CountHidden()
     return n
 end
 
+-- Remember what the trainer's own tooltip shows, so the hidden list can show
+-- the same description later, even for spells you have not learned yet.
+local function CaptureTooltip(entry, index)
+    if entry.spellID or (entry.lines and #entry.lines > 0) then return end
+    if not index or not (C_TooltipInfo and C_TooltipInfo.GetTrainerService) then return end
+    local ok, data = pcall(C_TooltipInfo.GetTrainerService, index)
+    if not ok or not data then return end
+    if TooltipUtil and TooltipUtil.SurfaceArgs then TooltipUtil.SurfaceArgs(data) end
+
+    if data.id and C_Spell.GetSpellName(data.id) == entry.name then
+        entry.spellID = data.id
+        return
+    end
+    local lines = {}
+    for _, line in ipairs(data.lines or {}) do
+        if TooltipUtil and TooltipUtil.SurfaceArgs then TooltipUtil.SurfaceArgs(line) end
+        local r, g, b = 1, 1, 1
+        local c = line.leftColor
+        if c then
+            if c.GetRGB then r, g, b = c:GetRGB() else r, g, b = c.r or 1, c.g or 1, c.b or 1 end
+        end
+        lines[#lines + 1] = { line.leftText, line.rightText, r, g, b }
+    end
+    if #lines > 0 then entry.lines = lines end
+end
+
+local function Backfill(entry, texture, index)
+    if not entry then return end
+    if not entry.icon and texture then entry.icon = texture end
+    CaptureTooltip(entry, index)
+end
+
 ---------------------------------------------------------------------------
 -- Trainer window handling
 ---------------------------------------------------------------------------
@@ -61,8 +93,7 @@ local function ApplyFilter()
             if data and data.skillIndex then
                 local name, _, texture, _, sub = GetTrainerServiceInfo(data.skillIndex)
                 if IsHidden(name, sub) then
-                    local entry = db.hidden[AllKey(name)] or db.hidden[RankKey(name, sub or "")]
-                    if entry and not entry.icon and texture then entry.icon = texture end
+                    Backfill(db.hidden[AllKey(name)] or db.hidden[RankKey(name, sub or "")], texture, data.skillIndex)
                     toRemove = toRemove or {}
                     toRemove[#toRemove + 1] = node
                 end
@@ -89,18 +120,22 @@ end
 
 local RefreshOptions  -- forward
 
-local function HideEntry(name, sub, allRanks, icon)
+local function HideEntry(name, sub, allRanks, icon, index)
+    local entry
     if allRanks then
-        db.hidden[AllKey(name)] = { name = name, icon = icon }
+        entry = { name = name, icon = icon }
+        db.hidden[AllKey(name)] = entry
         -- rank-specific entries for this spell are redundant now
-        for key, entry in pairs(db.hidden) do
-            if entry.name == name and entry.sub then
+        for key, other in pairs(db.hidden) do
+            if other.name == name and other.sub then
                 db.hidden[key] = nil
             end
         end
     else
-        db.hidden[RankKey(name, sub)] = { name = name, sub = sub, icon = icon }
+        entry = { name = name, sub = sub, icon = icon }
+        db.hidden[RankKey(name, sub)] = entry
     end
+    CaptureTooltip(entry, index)
     RefreshTrainer()
     RefreshOptions()
 end
@@ -126,14 +161,14 @@ local function ShowContextMenu(button)
             end)
         elseif sub ~= "" then
             root:CreateButton("Hide this rank only (" .. sub .. ")", function()
-                HideEntry(name, sub, false, icon)
+                HideEntry(name, sub, false, icon, index)
             end)
             root:CreateButton("Hide all ranks of " .. name, function()
-                HideEntry(name, sub, true, icon)
+                HideEntry(name, sub, true, icon, index)
             end)
         else
             root:CreateButton("Hide " .. name, function()
-                HideEntry(name, sub, true, icon)
+                HideEntry(name, sub, true, icon, index)
             end)
         end
         root:CreateDivider()
@@ -430,13 +465,29 @@ local function InitRow(row, data)
         row.btn:SetText("Restore")
 
         row:SetScript("OnEnter", function(self)
+            local d = self.data
+            local entry = db.hidden[d.key]
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            local info = C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(self.data.name)
-            if info and info.spellID then
-                GameTooltip:SetSpellByID(info.spellID)
+            if entry and entry.spellID then
+                GameTooltip:SetSpellByID(entry.spellID)
+            elseif entry and entry.lines and #entry.lines > 0 then
+                for _, l in ipairs(entry.lines) do
+                    if l[2] and l[2] ~= "" then
+                        GameTooltip:AddDoubleLine(l[1] or "", l[2], l[3], l[4], l[5], 1, 1, 1)
+                    else
+                        GameTooltip:AddLine(l[1] or "", l[3], l[4], l[5], true)
+                    end
+                end
             else
-                GameTooltip:AddLine(self.data.name, 1, 1, 1)
-                if self.data.sub then GameTooltip:AddLine(self.data.sub) end
+                -- not captured yet (visit the trainer once): try a lookup by name
+                local info = C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(d.name)
+                if info and info.spellID then
+                    GameTooltip:SetSpellByID(info.spellID)
+                else
+                    GameTooltip:AddLine(d.name, 1, 1, 1)
+                    if d.sub then GameTooltip:AddLine(d.sub) end
+                    GameTooltip:AddLine("Open this trainer once to load the description.", 0.6, 0.6, 0.6, true)
+                end
             end
             GameTooltip:Show()
         end)
