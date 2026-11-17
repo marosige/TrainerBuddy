@@ -58,14 +58,14 @@
     <g transform="translate(26 -10) scale(1.0) rotate(-9 256 256)">
 
       <!-- rounded codex spine -->
-      <path d="M130 74 C102 76 84 94 82 118 L82 420 C82 438 96 448 114 444 L130 412 Z" fill="url(#spineg)" stroke="#1a0d05" stroke-width="12" stroke-linejoin="round"/>
+      <path d="M130 74 C102 76 84 94 82 118 L82 400 C84 424 102 442 130 444 Z" fill="url(#spineg)" stroke="#1a0d05" stroke-width="12" stroke-linejoin="round"/>
       <!-- head and tail bands -->
-      <path d="M130 90 Q100 94 86 118 M114 436 Q96 438 85 424" fill="none" stroke="#e7b53a" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+      <path d="M130 90 Q100 94 86 118 M130 428 Q100 424 86 400" fill="none" stroke="#e7b53a" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
       <!-- raised bands wrapping the spine -->
       <g fill="none" stroke-linecap="round">
-        <path d="M130 140 Q98 146 84 176 M130 214 Q98 220 84 250 M130 288 Q98 294 84 324 M130 362 Q98 368 84 398" stroke="#1a0d05" stroke-width="15"/>
-        <path d="M130 140 Q98 146 84 176 M130 214 Q98 220 84 250 M130 288 Q98 294 84 324 M130 362 Q98 368 84 398" stroke="#f0c24a" stroke-width="8"/>
-        <path d="M130 136 Q98 142 84 172 M130 210 Q98 216 84 246 M130 284 Q98 290 84 320 M130 358 Q98 364 84 394" stroke="#fff3b0" stroke-width="2.5" opacity="0.7"/>
+        <path d="M130 136 Q98 142 84 172 M130 204 Q98 210 84 240 M130 272 Q98 278 84 308 M130 340 Q98 346 84 376" stroke="#1a0d05" stroke-width="15"/>
+        <path d="M130 136 Q98 142 84 172 M130 204 Q98 210 84 240 M130 272 Q98 278 84 308 M130 340 Q98 346 84 376" stroke="#f0c24a" stroke-width="8"/>
+        <path d="M130 134 Q98 140 84 170 M130 202 Q98 208 84 238 M130 270 Q98 276 84 306 M130 338 Q98 344 84 374" stroke="#fff3b0" stroke-width="2.5" opacity="0.7"/>
       </g>
       <path d="M106 112 L106 180 M106 232 L106 310" stroke="#fff" stroke-width="6" opacity="0.16" stroke-linecap="round"/>
 
