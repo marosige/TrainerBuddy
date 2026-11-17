@@ -655,7 +655,7 @@ end
 ---------------------------------------------------------------------------
 
 local MAX_ACTION_SLOT = 180
-local ICON_SIZE, ICON_GAP, PER_ROW, MIN_SLOTS = 45, 2, 12, 4
+local ICON_SIZE, ICON_GAP, PER_ROW, MIN_SLOTS = 45, 2, 6, 4
 local popup, popupButtons = nil, {}
 local testSpells = {}   -- /tb test: shown even if already on a bar, never saved
 
