@@ -655,7 +655,7 @@ end
 ---------------------------------------------------------------------------
 
 local MAX_ACTION_SLOT = 180
-local ICON_SIZE, ICON_GAP, PER_ROW, MIN_SLOTS = 38, 4, 12, 4
+local ICON_SIZE, ICON_GAP, PER_ROW, MIN_SLOTS = 45, 2, 12, 4
 local popup, popupButtons = nil, {}
 local testSpells = {}   -- /tb test: shown even if already on a bar, never saved
 
@@ -676,6 +676,10 @@ end
 local function PickupSpellByID(spellID)
     ClearCursor()
     C_Spell.PickupSpell(spellID)
+end
+
+local function HasAtlas(name)
+    return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
 end
 
 local function CreatePopup()
@@ -709,6 +713,24 @@ local function CreatePopup()
     popup.title:SetPoint("TOPLEFT", 10, -8)
     popup.title:SetText("New spells - drag to your bars")
 
+    -- little gryphon / wyvern on each side, like the main action bar
+    local faction = UnitFactionGroup("player")
+    local kind = faction == "Alliance" and "gryphon" or faction == "Horde" and "wyvern" or nil
+    if kind and HasAtlas("ui-hud-actionbar-" .. kind .. "-left") then
+        local function Cap(side, point, relPoint, x)
+            local atlas = "ui-hud-actionbar-" .. kind .. "-" .. side
+            local info = C_Texture.GetAtlasInfo(atlas)
+            local h = 70
+            local t = popup:CreateTexture(nil, "ARTWORK")
+            t:SetAtlas(atlas)
+            t:SetSize(info.width / info.height * h, h)
+            t:SetPoint(point, popup, relPoint, x, -4)
+            return t
+        end
+        popup.capLeft  = Cap("left",  "BOTTOMRIGHT", "BOTTOMLEFT", 10)
+        popup.capRight = Cap("right", "BOTTOMLEFT", "BOTTOMRIGHT", -10)
+    end
+
     popup.close = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
     popup.close:SetPoint("TOPRIGHT", 2, 2)
     popup.close:SetScale(0.8)
@@ -720,45 +742,52 @@ local function CreatePopup()
     popup:Hide()
 end
 
-local SLOT_ATLAS   = "UI-HUD-ActionBar-IconFrame-Slot"
-local BORDER_ATLAS = "UI-HUD-ActionBar-IconFrame"
+-- Same pieces the real action buttons are built from
+local SLOT_ATLAS   = "UI-HUD-ActionBar-IconFrame-Slot"        -- empty slot
+local BG_ATLAS     = "UI-HUD-ActionBar-IconFrame-Background"  -- behind the icon
+local BORDER_ATLAS = "UI-HUD-ActionBar-IconFrame"             -- frame around the icon
+local MASK_ATLAS   = "UI-HUD-ActionBar-IconFrame-Mask"        -- rounded icon corners
+local HILITE_ATLAS = "UI-HUD-ActionBar-IconFrame-Mouseover"
 
-local function HasAtlas(name)
-    return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
-end
-
--- One action-bar-like slot: dark empty background, spell icon on top.
+-- One action-bar-like slot: empty slot art, or background + masked icon + frame.
 local function GetButton(i)
     local b = popupButtons[i]
     if b then return b end
     b = CreateFrame("Button", nil, popup)
     b:SetSize(ICON_SIZE, ICON_SIZE)
 
-    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.slot = b:CreateTexture(nil, "BACKGROUND", nil, 0)
+    b.slot:SetAllPoints()
+    b.bg = b:CreateTexture(nil, "BACKGROUND", nil, 1)
     b.bg:SetAllPoints()
-    if HasAtlas(SLOT_ATLAS) then
-        b.bg:SetAtlas(SLOT_ATLAS)
-    else
-        b.bg:SetColorTexture(0, 0, 0, 0.5)
-    end
-
     b.icon = b:CreateTexture(nil, "ARTWORK")
-    b.icon:SetPoint("TOPLEFT", 2, -2)
-    b.icon:SetPoint("BOTTOMRIGHT", -2, 2)
-    b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-
+    b.icon:SetAllPoints()
     b.border = b:CreateTexture(nil, "OVERLAY")
     b.border:SetAllPoints()
-    if HasAtlas(BORDER_ATLAS) then
+
+    if HasAtlas(SLOT_ATLAS) then
+        b.slot:SetAtlas(SLOT_ATLAS)
+        b.bg:SetAtlas(BG_ATLAS)
         b.border:SetAtlas(BORDER_ATLAS)
+        if b.CreateMaskTexture and HasAtlas(MASK_ATLAS) then
+            local mask = b:CreateMaskTexture()
+            mask:SetAtlas(MASK_ATLAS)
+            mask:SetAllPoints(b.icon)
+            b.icon:AddMaskTexture(mask)
+        end
+        b:SetHighlightTexture(HILITE_ATLAS, "ADD")
+        b.icon:SetTexCoord(0, 1, 0, 1)
     else
+        b.slot:SetColorTexture(0, 0, 0, 0.5)
+        b.bg:Hide()
         b.border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
         b.border:ClearAllPoints()
         b.border:SetPoint("CENTER")
         b.border:SetSize(ICON_SIZE * 1.8, ICON_SIZE * 1.8)
+        b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+        b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
     end
 
-    b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     b:RegisterForDrag("LeftButton")
     b:RegisterForClicks("LeftButtonUp")
     b:SetScript("OnDragStart", function(self) if self.spellID then PickupSpellByID(self.spellID) end end)
@@ -810,14 +839,12 @@ function RefreshPopup()
         b:SetPoint("TOPLEFT", popup, "TOPLEFT", 10 + col * (ICON_SIZE + ICON_GAP), -26 - row * (ICON_SIZE + ICON_GAP))
         local spellID = list[i]
         b.spellID = spellID
-        if spellID then
-            b.icon:SetTexture(C_Spell.GetSpellTexture(spellID))
-            b.icon:Show()
-            b.border:Show()
-        else
-            b.icon:Hide()   -- empty slot, like an unused action bar button
-            b.border:Hide()
-        end
+        local filled = spellID ~= nil
+        if filled then b.icon:SetTexture(C_Spell.GetSpellTexture(spellID)) end
+        b.icon:SetShown(filled)
+        b.border:SetShown(filled)
+        b.bg:SetShown(filled and b.bg:GetAtlas() ~= nil)
+        b.slot:SetShown(not filled or not HasAtlas(SLOT_ATLAS))  -- empty slots show the slot art
         b:Show()
     end
     for i = slots + 1, #popupButtons do popupButtons[i]:Hide() end
