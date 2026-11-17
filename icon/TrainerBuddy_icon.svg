@@ -20,7 +20,7 @@
       <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0.1  0 0 0 -2.2 1.35" result="a"/>
       <feComposite in="a" in2="SourceGraphic" operator="in"/>
     </filter>
-    <clipPath id="pageclip"><path d="M130 412 C102 414 84 432 82 456 L420 456 L420 400 L130 400 Z"/></clipPath>
+    <clipPath id="pageclip"><path d="M130 412 C106.9 413.6 90.6 426.2 84.5 444.0 L420 444 L420 400 L130 400 Z"/></clipPath>
     <clipPath id="sq"><rect width="512" height="512" rx="22"/></clipPath>
 
     <!-- book -->
@@ -63,7 +63,7 @@
       <path d="M118 420 L360 420 M110 427 L352 427 M104 434 L346 434 M98 440 L342 440" clip-path="url(#pageclip)" stroke="#b79b5c" stroke-width="2.5" opacity="0.9" stroke-linecap="round"/>
 
       <!-- rounded codex spine -->
-      <path d="M130 74 C102 76 84 94 82 118 L82 456 C84 432 102 414 130 412 Z" fill="url(#spineg)" stroke="#1a0d05" stroke-width="12" stroke-linejoin="round"/>
+      <path d="M130 74 C102 76 84 94 82 118 L82 444 L84.5 444.0 C90.6 426.2 106.9 413.6 130.0 412.0 Z" fill="url(#spineg)" stroke="#1a0d05" stroke-width="12" stroke-linejoin="round"/>
       <!-- head and tail bands -->
       <path d="M130 90 Q100 94 86 118 M130 396 Q100 400 86 424" fill="none" stroke="#e7b53a" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
       <!-- raised bands wrapping the spine -->
