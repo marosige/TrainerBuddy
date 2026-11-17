@@ -920,11 +920,9 @@ local function RankOf(spellID)
     return sub and tonumber(sub:match("(%d+)")) or nil
 end
 
--- dryRun: only report what would be replaced (used by /tb test upgrade)
-local function UpgradeOnBars(newID, dryRun)
-    local count = 0
+local function UpgradeOnBars(newID)
     local newName = C_Spell.GetSpellName(newID)
-    if not newName then return 0 end
+    if not newName then return end
     local newRank = RankOf(newID)
 
     for slot = 1, MAX_ACTION_SLOT do
@@ -936,42 +934,15 @@ local function UpgradeOnBars(newID, dryRun)
                 replace = oldRank ~= nil and newRank > oldRank
             end
             if replace then
-                count = count + 1
                 local rankText = newRank and (" (rank " .. newRank .. ")") or ""
-                if dryRun then
-                    print(("|cff66ccffTrainer Buddy|r test: slot %d: %s -> %s%s"):format(
-                        slot, C_Spell.GetSpellName(id) or id, newName, rankText))
-                else
-                    ClearCursor()
-                    C_Spell.PickupSpell(newID)
-                    PlaceAction(slot)
-                    ClearCursor()
-                    print(("|cff66ccffTrainer Buddy|r: action slot %d -> %s%s"):format(
-                        slot, newName, rankText))
-                end
+                ClearCursor()
+                C_Spell.PickupSpell(newID)
+                PlaceAction(slot)
+                ClearCursor()
+                print(("|cff66ccffTrainer Buddy|r: action slot %d -> %s%s"):format(slot, newName, rankText))
             end
         end
     end
-    return count
-end
-
--- /tb test upgrade: go through your known spells and list which action bar
--- slots would be upgraded. Changes nothing.
-local function TestUpgrade()
-    local total, checked = 0, 0
-    for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
-        local info = C_SpellBook.GetSpellBookSkillLineInfo(line)
-        if info then
-            for i = info.itemIndexOffset + 1, info.itemIndexOffset + info.numSpellBookItems do
-                local item = C_SpellBook.GetSpellBookItemInfo(i, Enum.SpellBookSpellBank.Player)
-                if item and item.spellID and item.itemType == Enum.SpellBookItemType.Spell then
-                    checked = checked + 1
-                    total = total + UpgradeOnBars(item.spellID, true)
-                end
-            end
-        end
-    end
-    print(("|cff66ccffTrainer Buddy|r test: checked %d known spells, %d action bar slot(s) would be upgraded. Nothing was changed."):format(checked, total))
 end
 
 local function ProcessPendingSpells()
@@ -1051,7 +1022,6 @@ local function PrintHelp()
     print("  " .. c .. "/tb auto|r - toggle action bar auto-upgrade")
     print("  " .. c .. "/tb popup|r - toggle the new spells popup")
     print("  " .. c .. "/tb test [count]|r - preview the popup with random spells (again to clear)")
-    print("  " .. c .. "/tb test upgrade|r - list which action bar slots auto-upgrade would change")
     print("  " .. c .. "/tb help|r - this list")
 end
 
@@ -1065,8 +1035,6 @@ SlashCmdList["TRAINERBUDDY"] = function(msg)
         db.showPopup = not db.showPopup
         print("|cff66ccffTrainer Buddy|r: new-spells popup " .. (db.showPopup and "ON" or "OFF"))
         RefreshPopup()
-    elseif msg == "test upgrade" then
-        TestUpgrade()
     elseif msg == "test" or msg:match("^test%s+%d+$") then
         TestPopup(msg:match("^test%s+(%d+)"))
     else
