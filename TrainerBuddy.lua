@@ -682,19 +682,16 @@ local function HasAtlas(name)
     return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
 end
 
+local HEADER_H, PAD = 26, 10
+local dividerPool
+
 local function CreatePopup()
-    popup = CreateFrame("Frame", "TrainerBuddyNewSpells", UIParent, "BackdropTemplate")
+    popup = CreateFrame("Frame", "TrainerBuddyNewSpells", UIParent)
     popup:SetFrameStrata("MEDIUM")
     popup:SetClampedToScreen(true)
     popup:SetMovable(true)
     popup:EnableMouse(true)
     popup:RegisterForDrag("LeftButton")
-    popup:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 },
-    })
-    popup:SetBackdropColor(0, 0, 0, 0.85)
 
     local pos = db.popupPos
     if pos then
@@ -709,46 +706,45 @@ local function CreatePopup()
         db.popupPos = { point, relPoint, x, y }
     end)
 
-    -- header strip: gold-tinted bar with a line under it, title left, close button right
-    popup.header = CreateFrame("Frame", nil, popup)
-    popup.header:SetPoint("TOPLEFT", 4, -4)
-    popup.header:SetPoint("TOPRIGHT", -4, -4)
-    popup.header:SetHeight(20)
-    local hbg = popup.header:CreateTexture(nil, "BACKGROUND")
-    hbg:SetAllPoints()
-    hbg:SetColorTexture(0.45, 0.32, 0.06, 0.35)
-    local hline = popup.header:CreateTexture(nil, "BORDER")
-    hline:SetColorTexture(1, 0.82, 0, 0.55)
-    hline:SetHeight(1)
-    hline:SetPoint("BOTTOMLEFT")
-    hline:SetPoint("BOTTOMRIGHT")
-    popup.title = popup.header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    popup.title:SetPoint("LEFT", 8, 0)
-    popup.title:SetText("New spells - drag to your bars")
+    -- header plaque: Blizzard's dark dialog border, title left, close button right
+    local ok, header = pcall(CreateFrame, "Frame", nil, popup, "DialogBorderDarkTemplate")
+    if not ok then header = CreateFrame("Frame", nil, popup) end
+    popup.header = header
+    header:SetPoint("TOPLEFT")
+    header:SetPoint("TOPRIGHT")
+    header:SetHeight(HEADER_H)
+    popup.title = header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    popup.title:SetPoint("LEFT", 12, 0)
+    popup.title:SetText("Place your new spells")
 
-    popup.close = CreateFrame("Button", nil, popup.header, "UIPanelCloseButton")
-    popup.close:SetPoint("RIGHT", 3, 0)
+    popup.close = CreateFrame("Button", nil, header, "UIPanelCloseButton")
+    popup.close:SetPoint("RIGHT", 2, 0)
     popup.close:SetScale(0.62)
     popup.close:SetScript("OnClick", function()
         wipe(db.newSpells)
         wipe(testSpells)
         popup:Hide()
     end)
+
+    -- the bar itself: the real action bar's border art, slots and dividers
+    popup.bar = CreateFrame("Frame", nil, popup)
+    popup.bar:SetPoint("TOPLEFT", popup.header, "BOTTOMLEFT", PAD, -8)
+    if HasAtlas("UI-HUD-ActionBar-Frame") then
+        local art = popup.bar:CreateTexture(nil, "BACKGROUND", nil, -3)
+        art:SetAtlas("UI-HUD-ActionBar-Frame")
+        art:SetPoint("TOPLEFT", -6, 6)
+        art:SetPoint("BOTTOMRIGHT", 4, -5)
+    end
+    local ok2, pool = pcall(CreateFramePool, "FRAME", popup.bar, "HorizontalDividerTemplate")
+    if ok2 then dividerPool = pool end
     popup:Hide()
 end
-
--- Same pieces the real action buttons are built from
-local SLOT_ATLAS   = "UI-HUD-ActionBar-IconFrame-Slot"        -- empty slot
-local BG_ATLAS     = "UI-HUD-ActionBar-IconFrame-Background"  -- behind the icon
-local BORDER_ATLAS = "UI-HUD-ActionBar-IconFrame"             -- frame around the icon
-local MASK_ATLAS   = "UI-HUD-ActionBar-IconFrame-Mask"        -- rounded icon corners
-local HILITE_ATLAS = "UI-HUD-ActionBar-IconFrame-Mouseover"
 
 -- One action-bar-like slot: empty slot art, or background + masked icon + frame.
 local function GetButton(i)
     local b = popupButtons[i]
     if b then return b end
-    b = CreateFrame("Button", nil, popup)
+    b = CreateFrame("Button", nil, popup.bar)
     b:SetSize(ICON_SIZE, ICON_SIZE)
 
     b.slot = b:CreateTexture(nil, "BACKGROUND", nil, 0)
@@ -831,7 +827,7 @@ function RefreshPopup()
         local b = GetButton(i)
         local col, row = (i - 1) % PER_ROW, math.floor((i - 1) / PER_ROW)
         b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", popup, "TOPLEFT", 10 + col * (ICON_SIZE + ICON_GAP), -26 - row * (ICON_SIZE + ICON_GAP))
+        b:SetPoint("TOPLEFT", popup.bar, "TOPLEFT", col * (ICON_SIZE + ICON_GAP), -row * (ICON_SIZE + ICON_GAP))
         local spellID = list[i]
         b.spellID = spellID
         local filled = spellID ~= nil
@@ -846,8 +842,27 @@ function RefreshPopup()
 
     local cols = math.min(slots, PER_ROW)
     local rows = math.ceil(slots / PER_ROW)
-    popup:SetSize(20 + cols * (ICON_SIZE + ICON_GAP) - ICON_GAP,
-                  36 + rows * (ICON_SIZE + ICON_GAP) - ICON_GAP)
+    local barW = cols * (ICON_SIZE + ICON_GAP) - ICON_GAP
+    local barH = rows * (ICON_SIZE + ICON_GAP) - ICON_GAP
+    popup.bar:SetSize(barW, barH)
+    popup:SetSize(math.max(barW + 2 * PAD, 190), HEADER_H + 8 + barH + PAD)
+
+    -- the golden dividers between neighbouring slots (single row only, like the real bar)
+    if dividerPool then
+        dividerPool:ReleaseAll()
+        if rows == 1 then
+            for i = 2, slots do
+                local b = popupButtons[i]
+                local d = dividerPool:Acquire()
+                d:ClearAllPoints()
+                d:SetPoint("TOP", b, "TOP", 0, 0)
+                d:SetPoint("BOTTOM", b, "BOTTOM", 0, 0)
+                d:SetPoint("RIGHT", b, "LEFT", 5, 0)
+                d:SetFrameLevel(b:GetFrameLevel() + 2)
+                d:Show()
+            end
+        end
+    end
     popup:Show()
 end
 
