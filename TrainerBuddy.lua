@@ -655,7 +655,7 @@ end
 ---------------------------------------------------------------------------
 
 local MAX_ACTION_SLOT = 180
-local ICON_SIZE, ICON_GAP, PER_ROW = 38, 6, 8
+local ICON_SIZE, ICON_GAP, PER_ROW, MIN_SLOTS = 38, 4, 12, 4
 local popup, popupButtons = nil, {}
 
 local function IsOnBar(spellID)
@@ -718,22 +718,51 @@ local function CreatePopup()
     popup:Hide()
 end
 
+local SLOT_ATLAS   = "UI-HUD-ActionBar-IconFrame-Slot"
+local BORDER_ATLAS = "UI-HUD-ActionBar-IconFrame"
+
+local function HasAtlas(name)
+    return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
+end
+
+-- One action-bar-like slot: dark empty background, spell icon on top.
 local function GetButton(i)
     local b = popupButtons[i]
     if b then return b end
     b = CreateFrame("Button", nil, popup)
     b:SetSize(ICON_SIZE, ICON_SIZE)
+
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetAllPoints()
+    if HasAtlas(SLOT_ATLAS) then
+        b.bg:SetAtlas(SLOT_ATLAS)
+    else
+        b.bg:SetColorTexture(0, 0, 0, 0.5)
+    end
+
     b.icon = b:CreateTexture(nil, "ARTWORK")
-    b.icon:SetAllPoints()
+    b.icon:SetPoint("TOPLEFT", 2, -2)
+    b.icon:SetPoint("BOTTOMRIGHT", -2, 2)
     b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-    b.rank = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
-    b.rank:SetPoint("BOTTOMRIGHT", -2, 2)
+
+    b.border = b:CreateTexture(nil, "OVERLAY")
+    b.border:SetAllPoints()
+    if HasAtlas(BORDER_ATLAS) then
+        b.border:SetAtlas(BORDER_ATLAS)
+    else
+        b.border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+        b.border:ClearAllPoints()
+        b.border:SetPoint("CENTER")
+        b.border:SetSize(ICON_SIZE * 1.8, ICON_SIZE * 1.8)
+    end
+
     b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     b:RegisterForDrag("LeftButton")
     b:RegisterForClicks("LeftButtonUp")
-    b:SetScript("OnDragStart", function(self) PickupSpellByID(self.spellID) end)
-    b:SetScript("OnClick", function(self) PickupSpellByID(self.spellID) end)
+    b:SetScript("OnDragStart", function(self) if self.spellID then PickupSpellByID(self.spellID) end end)
+    b:SetScript("OnClick", function(self) if self.spellID then PickupSpellByID(self.spellID) end end)
     b:SetScript("OnEnter", function(self)
+        if not self.spellID then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetSpellByID(self.spellID)
         GameTooltip:Show()
@@ -765,22 +794,30 @@ function RefreshPopup()
         return
     end
 
-    for i, spellID in ipairs(list) do
+    -- at least MIN_SLOTS slots; extra spells extend the bar to the right
+    local slots = math.max(#list, MIN_SLOTS)
+    for i = 1, slots do
         local b = GetButton(i)
         local col, row = (i - 1) % PER_ROW, math.floor((i - 1) / PER_ROW)
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", popup, "TOPLEFT", 10 + col * (ICON_SIZE + ICON_GAP), -26 - row * (ICON_SIZE + ICON_GAP))
+        local spellID = list[i]
         b.spellID = spellID
-        b.icon:SetTexture(C_Spell.GetSpellTexture(spellID))
-        local rank = tonumber((C_Spell.GetSpellSubtext(spellID) or ""):match("(%d+)"))
-        b.rank:SetText(rank or "")
+        if spellID then
+            b.icon:SetTexture(C_Spell.GetSpellTexture(spellID))
+            b.icon:Show()
+            b.border:Show()
+        else
+            b.icon:Hide()   -- empty slot, like an unused action bar button
+            b.border:Hide()
+        end
         b:Show()
     end
-    for i = #list + 1, #popupButtons do popupButtons[i]:Hide() end
+    for i = slots + 1, #popupButtons do popupButtons[i]:Hide() end
 
-    local cols = math.min(#list, PER_ROW)
-    local rows = math.ceil(#list / PER_ROW)
-    popup:SetSize(math.max(20 + cols * (ICON_SIZE + ICON_GAP) - ICON_GAP, 190),
+    local cols = math.min(slots, PER_ROW)
+    local rows = math.ceil(slots / PER_ROW)
+    popup:SetSize(20 + cols * (ICON_SIZE + ICON_GAP) - ICON_GAP,
                   36 + rows * (ICON_SIZE + ICON_GAP) - ICON_GAP)
     popup:Show()
 end
