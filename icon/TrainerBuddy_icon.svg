@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- background -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f5a35"/>
+      <stop offset="1" stop-color="#0e2012"/>
+    </linearGradient>
+    <filter id="mottle" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="3" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.4  0 0 0 0 0.7  0 0 0 0 0.4  0 0 0 1.4 -0.45"/>
+    </filter>
+    <!-- grain / leather texture -->
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.15" result="a"/>
+      <feComposite in="a" in2="SourceGraphic" operator="in"/>
+    </filter>
+    <filter id="leather" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.55 0.9" numOctaves="2" seed="11" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0.1  0 0 0 -2.2 1.35" result="a"/>
+      <feComposite in="a" in2="SourceGraphic" operator="in"/>
+    </filter>
+    <clipPath id="sq"><rect width="512" height="512" rx="22"/></clipPath>
+
+    <!-- book -->
+    <linearGradient id="cover" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9a62e0"/>
+      <stop offset="0.5" stop-color="#6d3fb8"/>
+      <stop offset="1" stop-color="#35196e"/>
+    </linearGradient>
+    <linearGradient id="spineg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1e0c40"/>
+      <stop offset="0.45" stop-color="#8a58d6"/>
+      <stop offset="1" stop-color="#3a1c78"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe27a"/>
+      <stop offset="1" stop-color="#c88a1c"/>
+    </linearGradient>
+    <linearGradient id="pages" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf0cf"/>
+      <stop offset="1" stop-color="#dcc690"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e5453d"/>
+      <stop offset="1" stop-color="#a51f24"/>
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#sq)">
+    <!-- background -->
+    <rect width="512" height="512" fill="url(#bg)"/>
+    <rect width="512" height="512" filter="url(#mottle)" opacity="0.55"/>
+
+    <!-- shadow -->
+    <ellipse cx="258" cy="462" rx="150" ry="18" fill="#000" opacity="0.45"/>
+
+    <g transform="translate(26 -10) scale(1.0) rotate(-9 256 256)">
+
+      <!-- rounded codex spine -->
+      <path d="M130 74 C102 76 84 94 82 118 L82 420 C82 438 96 448 114 444 L130 412 Z" fill="url(#spineg)" stroke="#1a0d05" stroke-width="12" stroke-linejoin="round"/>
+      <!-- head and tail bands -->
+      <path d="M130 90 Q100 94 86 118 M114 436 Q96 438 85 424" fill="none" stroke="#e7b53a" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+      <!-- raised bands wrapping the spine -->
+      <g fill="none" stroke-linecap="round">
+        <path d="M130 140 Q98 146 84 176 M130 214 Q98 220 84 250 M130 288 Q98 294 84 324 M130 362 Q98 368 84 398" stroke="#1a0d05" stroke-width="15"/>
+        <path d="M130 140 Q98 146 84 176 M130 214 Q98 220 84 250 M130 288 Q98 294 84 324 M130 362 Q98 368 84 398" stroke="#f0c24a" stroke-width="8"/>
+        <path d="M130 136 Q98 142 84 172 M130 210 Q98 216 84 246 M130 284 Q98 290 84 320 M130 358 Q98 364 84 394" stroke="#fff3b0" stroke-width="2.5" opacity="0.7"/>
+      </g>
+      <path d="M106 112 L106 180 M106 232 L106 310" stroke="#fff" stroke-width="6" opacity="0.16" stroke-linecap="round"/>
+
+      <!-- page block, small rounded end next to the spine -->
+      <path d="M128 411 L376 411 L344 444 L128 444 A9 16.5 0 0 1 128 411 Z" fill="url(#pages)" stroke="#1a0d05" stroke-width="11" stroke-linejoin="round"/>
+      <path d="M126 419 L360 419 M125 426 L352 426 M125 433 L346 433 M126 439 L342 439" stroke="#b79b5c" stroke-width="2.5" opacity="0.9" stroke-linecap="round"/>
+
+      <!-- cover -->
+      <rect x="130" y="74" width="246" height="338" rx="12" fill="url(#cover)" stroke="#1a0d05" stroke-width="14" stroke-linejoin="round"/>
+      <rect x="130" y="74" width="246" height="338" rx="12" fill="#000" filter="url(#leather)" opacity="0.28"/>
+      <!-- hinge groove next to the spine -->
+      <path d="M143 84 L143 402" stroke="#240f4a" stroke-width="5" opacity="0.8"/>
+      <path d="M137 84 L137 402" stroke="#e7b53a" stroke-width="4"/>
+      <!-- inset gold frame -->
+      <rect x="156" y="94" width="206" height="298" rx="6" fill="none" stroke="#f0c24a" stroke-width="3" opacity="0.75"/>
+      <!-- edge highlight -->
+      <path d="M142 80 L366 80" stroke="#fff" stroke-width="3" opacity="0.22" stroke-linecap="round"/>
+      <!-- gold corner protectors -->
+      <path d="M326 74 H364 Q376 74 376 86 V124 Z" fill="url(#gold)" stroke="#1a0d05" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M326 412 H364 Q376 412 376 400 V362 Z" fill="url(#gold)" stroke="#1a0d05" stroke-width="7" stroke-linejoin="round"/>
+      <!-- light streak -->
+      <path d="M150 84 L246 84 L150 192 Z" fill="#fff" opacity="0.14"/>
+
+      <!-- eyes, in the upper part of the cover like a face -->
+      <ellipse cx="212" cy="178" rx="34" ry="40" fill="#fff6dc" stroke="#1a0d05" stroke-width="11"/>
+      <ellipse cx="292" cy="178" rx="34" ry="40" fill="#fff6dc" stroke="#1a0d05" stroke-width="11"/>
+      <circle cx="219" cy="187" r="17" fill="#1a0d05"/><circle cx="299" cy="187" r="17" fill="#1a0d05"/>
+      <circle cx="225" cy="179" r="6" fill="#fff"/><circle cx="305" cy="179" r="6" fill="#fff"/>
+    </g>
+
+    <!-- grain over everything -->
+    <rect width="512" height="512" fill="#000" filter="url(#grain)" opacity="0.22"/>
+  </g>
+
+  <!-- dark WoW-style icon border -->
+  <rect x="3" y="3" width="506" height="506" rx="22" fill="none" stroke="#0b0703" stroke-width="6"/>
+  <rect x="9" y="9" width="494" height="494" rx="18" fill="none" stroke="#fff" stroke-opacity="0.12" stroke-width="2"/>
+</svg>

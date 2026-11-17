@@ -1,3 +1,5 @@
+<p align="center"><img src="icon/TrainerBuddy_icon_512.png" width="160" alt="Trainer Buddy icon"></p>
+
 # Trainer Buddy
 
 A World of Warcraft: Forever addon that makes trainer visits less tedious.
