@@ -59,8 +59,10 @@ local function ApplyFilter()
         for _, node in dp:EnumerateEntireRange() do
             local data = node:GetData()
             if data and data.skillIndex then
-                local name, _, _, _, sub = GetTrainerServiceInfo(data.skillIndex)
+                local name, _, texture, _, sub = GetTrainerServiceInfo(data.skillIndex)
                 if IsHidden(name, sub) then
+                    local entry = db.hidden[AllKey(name)] or db.hidden[RankKey(name, sub or "")]
+                    if entry and not entry.icon and texture then entry.icon = texture end
                     toRemove = toRemove or {}
                     toRemove[#toRemove + 1] = node
                 end
@@ -87,9 +89,9 @@ end
 
 local RefreshOptions  -- forward
 
-local function HideEntry(name, sub, allRanks)
+local function HideEntry(name, sub, allRanks, icon)
     if allRanks then
-        db.hidden[AllKey(name)] = { name = name }
+        db.hidden[AllKey(name)] = { name = name, icon = icon }
         -- rank-specific entries for this spell are redundant now
         for key, entry in pairs(db.hidden) do
             if entry.name == name and entry.sub then
@@ -97,7 +99,7 @@ local function HideEntry(name, sub, allRanks)
             end
         end
     else
-        db.hidden[RankKey(name, sub)] = { name = name, sub = sub }
+        db.hidden[RankKey(name, sub)] = { name = name, sub = sub, icon = icon }
     end
     RefreshTrainer()
     RefreshOptions()
@@ -105,7 +107,7 @@ end
 
 local function ShowContextMenu(button)
     local index = button:GetID()
-    local name, _, _, _, sub = GetTrainerServiceInfo(index)
+    local name, _, icon, _, sub = GetTrainerServiceInfo(index)
     if not name then return end
     sub = sub or ""
 
@@ -113,14 +115,14 @@ local function ShowContextMenu(button)
         root:CreateTitle(name .. (sub ~= "" and (" (" .. sub .. ")") or ""))
         if sub ~= "" then
             root:CreateButton("Hide this rank only (" .. sub .. ")", function()
-                HideEntry(name, sub, false)
+                HideEntry(name, sub, false, icon)
             end)
             root:CreateButton("Hide all ranks of " .. name, function()
-                HideEntry(name, sub, true)
+                HideEntry(name, sub, true, icon)
             end)
         else
             root:CreateButton("Hide " .. name, function()
-                HideEntry(name, sub, true)
+                HideEntry(name, sub, true, icon)
             end)
         end
         root:CreateDivider()
@@ -316,13 +318,10 @@ local scrollBox, emptyText
 local function BuildList()
     local list = {}
     for key, entry in pairs(db.hidden) do
-        local label
-        if entry.sub then
-            label = entry.name .. "  |cffaaaaaa(" .. entry.sub .. " only)|r"
-        else
-            label = entry.name .. "  |cffaaaaaa(all ranks)|r"
-        end
-        list[#list + 1] = { key = key, label = label, sortName = entry.name .. (entry.sub or "") }
+        list[#list + 1] = {
+            key = key, name = entry.name, sub = entry.sub, icon = entry.icon,
+            sortName = entry.name .. (entry.sub or ""),
+        }
     end
     table.sort(list, function(a, b) return a.sortName < b.sortName end)
     return list
@@ -341,20 +340,64 @@ local function RestoreEntry(key)
     RefreshTrainer()
 end
 
+local ROW_HEIGHT = 47      -- same as the rows in the trainer window
+local QUESTION_MARK = 134400  -- INV_Misc_QuestionMark
+
+local function EntryIcon(data)
+    if data.icon then return data.icon end
+    -- entries hidden before icons were stored: look the spell up by name
+    local tex = C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(data.name)
+    return tex or QUESTION_MARK
+end
+
 local function InitRow(row, data)
-    if not row.text then
-        row.text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        row.text:SetPoint("LEFT", 8, 0)
-        row.text:SetJustifyH("LEFT")
-        row.btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        row.btn:SetSize(90, 22)
-        row.btn:SetPoint("RIGHT", -8, 0)
-        row.btn:SetText("Restore")
+    if not row.nameText then
+        row:SetHeight(ROW_HEIGHT)
         row.bg = row:CreateTexture(nil, "BACKGROUND")
         row.bg:SetAllPoints()
-        row.bg:SetColorTexture(1, 1, 1, 0.04)
+        row.bg:SetColorTexture(1, 1, 1, 0.05)
+        row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+
+        row.iconBG = row:CreateTexture(nil, "BORDER")
+        row.iconBG:SetSize(40, 40)
+        row.iconBG:SetPoint("LEFT", 8, 0)
+        row.iconBG:SetColorTexture(0, 0, 0, 0.9)
+        row.icon = row:CreateTexture(nil, "ARTWORK")
+        row.icon:SetSize(36, 36)
+        row.icon:SetPoint("CENTER", row.iconBG)
+        row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+        row.nameText = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        row.nameText:SetPoint("TOPLEFT", row.iconBG, "TOPRIGHT", 10, -4)
+        row.nameText:SetJustifyH("LEFT")
+        row.subText = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        row.subText:SetPoint("TOPLEFT", row.nameText, "BOTTOMLEFT", 0, -4)
+        row.subText:SetJustifyH("LEFT")
+        row.subText:SetTextColor(0.65, 0.65, 0.65)
+
+        row.btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+        row.btn:SetSize(90, 24)
+        row.btn:SetPoint("RIGHT", -10, 0)
+        row.btn:SetText("Restore")
+
+        row:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            local info = C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(self.data.name)
+            if info and info.spellID then
+                GameTooltip:SetSpellByID(info.spellID)
+            else
+                GameTooltip:AddLine(self.data.name, 1, 1, 1)
+                if self.data.sub then GameTooltip:AddLine(self.data.sub) end
+            end
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", GameTooltip_Hide)
     end
-    row.text:SetText(data.label)
+
+    row.data = data
+    row.icon:SetTexture(EntryIcon(data))
+    row.nameText:SetText(data.name)
+    row.subText:SetText(data.sub and (data.sub .. " only") or "All ranks")
     row.btn:SetScript("OnClick", function() RestoreEntry(data.key) end)
 end
 
@@ -404,8 +447,8 @@ local function BuildOptions()
     scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 6, 0)
 
     local view = CreateScrollBoxListLinearView()
-    view:SetElementExtent(26)
-    view:SetPadding(0, 0, 0, 0, 2)
+    view:SetElementExtent(ROW_HEIGHT)
+    view:SetPadding(0, 0, 0, 0, 3)
     view:SetElementFactory(function(factory, elementData)
         factory("Button", InitRow)
     end)
