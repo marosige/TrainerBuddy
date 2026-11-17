@@ -7,7 +7,7 @@ Trainer Buddy
   * "Train All" button left of the "Train" button. Skips hidden entries,
     shows the total price and buys as many as you can afford.
   * Settings > AddOns > Trainer Buddy (or /tb) lists everything you
-    hid, with a Restore button per entry.
+    hid, with an Unhide button per entry.
 ]]
 
 local ADDON = ...
@@ -495,7 +495,7 @@ local function InitRow(row, data)
         card.btn = CreateFrame("Button", nil, card, "UIPanelButtonTemplate")
         card.btn:SetSize(80, 22)
         card.btn:SetPoint("RIGHT", -10, 0)
-        card.btn:SetText("Restore")
+        card.btn:SetText("Unhide")
 
         card.nameText = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         card.nameText:SetPoint("TOPLEFT", card.iconBG, "TOPRIGHT", 10, -3)
@@ -537,12 +537,12 @@ local function BuildOptions()
 
     local desc = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-    desc:SetText("Entries you hid at a trainer (right-click an entry). Restore brings them back.")
+    desc:SetText("Entries you hid at a trainer (right-click an entry). Unhide brings them back.")
 
     local restoreAll = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     restoreAll:SetSize(110, 22)
     restoreAll:SetPoint("TOPRIGHT", -16, -16)
-    restoreAll:SetText("Restore all")
+    restoreAll:SetText("Unhide all")
     restoreAll:SetScript("OnClick", function()
         wipe(db.hidden)
         RefreshOptions()
