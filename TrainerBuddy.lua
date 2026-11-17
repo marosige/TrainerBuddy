@@ -706,8 +706,9 @@ end
 -- bar pieces (slots, dividers, border art) on the page.
 local PAPER    = "Interface\\AddOns\\TrainerBuddy\\paper.tga"
 local PORTRAIT = "Interface\\AddOns\\TrainerBuddy\\portrait.tga"
-local FRAME_PAD, TOP_H, BAR_GAP = 14, 66, 10   -- page side padding, title+portrait height, gap above bar
-local dividerPool
+local FRAME_PAD = 14   -- side and bottom padding around the bar
+local BAR_TOP  = 67   -- bar starts just below the portrait circle, same gap as the other sides
+local dividerPool, vDividerPool
 
 local function CreatePopup()
     local ok, frame = pcall(CreateFrame, "Frame", "TrainerBuddyNewSpells", UIParent, "PortraitFrameTemplate")
@@ -769,6 +770,7 @@ local function CreatePopup()
     end)
     SafeDecor("dividers", function()
         dividerPool = CreateFramePool("FRAME", popup.bar, "HorizontalDividerTemplate")
+        vDividerPool = CreateFramePool("FRAME", popup.bar, "VerticalDividerTemplate")
     end)
     popup:Hide()
 end
@@ -879,22 +881,33 @@ function RefreshPopup()
     local barH = rows * (ICON_SIZE + ICON_GAP) - ICON_GAP
     popup.bar:SetSize(barW, barH)
     local width = math.max(barW + 2 * FRAME_PAD, 236)   -- wide enough for the title
-    popup:SetSize(width, TOP_H + BAR_GAP + barH + FRAME_PAD)
+    popup:SetSize(width, BAR_TOP + barH + FRAME_PAD)
     popup.bar:ClearAllPoints()
-    popup.bar:SetPoint("TOP", popup, "TOP", 0, -(TOP_H + BAR_GAP))
+    popup.bar:SetPoint("TOP", popup, "TOP", 0, -BAR_TOP)
 
-    -- the golden dividers between neighbouring slots (single row only, like the real bar)
-    if dividerPool then
+    -- golden dividers like the real bar: between neighbours in a row, and between rows
+    if dividerPool and vDividerPool then
         SafeDecor("dividers", function()
             dividerPool:ReleaseAll()
-            if rows == 1 then
-                for i = 2, slots do
-                    local b = popupButtons[i]
+            vDividerPool:ReleaseAll()
+            for i = 1, slots do
+                local b = popupButtons[i]
+                local col, row = (i - 1) % PER_ROW, math.floor((i - 1) / PER_ROW)
+                if col > 0 then
                     local d = dividerPool:Acquire()
                     d:ClearAllPoints()
                     d:SetPoint("TOP", b, "TOP", 0, 0)
                     d:SetPoint("BOTTOM", b, "BOTTOM", 0, 0)
                     d:SetPoint("RIGHT", b, "LEFT", 5, 0)
+                    d:SetFrameLevel(b:GetFrameLevel() + 2)
+                    d:Show()
+                end
+                if row > 0 then
+                    local d = vDividerPool:Acquire()
+                    d:ClearAllPoints()
+                    d:SetPoint("LEFT", b, "LEFT", 0, 0)
+                    d:SetPoint("RIGHT", b, "RIGHT", 0, 0)
+                    d:SetPoint("BOTTOM", b, "TOP", 0, -5)
                     d:SetFrameLevel(b:GetFrameLevel() + 2)
                     d:Show()
                 end
