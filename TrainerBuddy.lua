@@ -242,9 +242,21 @@ local function GetBudget(isPet)
     return GetMoney()
 end
 
+-- The old global GetCoinTextureString is gone in this client; it lives in C_CurrencyInfo now.
+local function CoinString(amount)
+    if C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString then
+        return C_CurrencyInfo.GetCoinTextureString(amount)
+    elseif GetCoinTextureString then
+        return GetCoinTextureString(amount)
+    elseif GetMoneyString then
+        return GetMoneyString(amount, true)
+    end
+    return amount .. "c"
+end
+
 local function FormatCost(amount, isPet)
     if isPet then return amount .. " TP" end
-    return GetCoinTextureString(amount)
+    return CoinString(amount)
 end
 
 function UpdateTrainAll()
