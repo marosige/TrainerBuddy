@@ -165,7 +165,7 @@ local function CollectTrainable()
                 -- learning a profession itself needs a confirmation: leave it manual
                 if not isProfession then
                     cost = cost or 0
-                    list[#list + 1] = { index = i, cost = cost, name = name }
+                    list[#list + 1] = { index = i, cost = cost, name = name, sub = sub }
                     total = total + cost
                 end
             end
@@ -235,23 +235,50 @@ local function CreateTrainAllButton()
     trainAllButton:SetWidth(TRAINALL_WIDTH)
     trainAllButton:SetPoint("RIGHT", ClassTrainerTrainButton, "LEFT", 0, 0)
     trainAllButton:SetScript("OnClick", TrainAll)
+    trainAllButton:SetMotionScriptsWhileDisabled(true)  -- keep the tooltip when it is greyed out
 
     costText = trainAllButton:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     costText:SetPoint("BOTTOM", trainAllButton, "TOP", 0, COST_OFFSET_Y)
 
     trainAllButton:SetScript("OnEnter", function(self)
+        local list, total, isPet = CollectTrainable()
+        local budget = GetBudget(isPet)
+        local MAX_LINES = 14
+
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:AddLine("Train All")
-        local count = self.list and #self.list or 0
-        if count == 0 then
+
+        if #list == 0 then
             GameTooltip:AddLine("Nothing to train (hidden entries are skipped).", 1, 1, 1, true)
         else
-            GameTooltip:AddDoubleLine("Entries:", count .. " (" .. (self.affordable or 0) .. " affordable)", 1, 1, 1, 1, 1, 1)
-            GameTooltip:AddDoubleLine("Total cost:", FormatCost(self.total or 0, self.isPet), 1, 1, 1, 1, 1, 1)
-            if self.isPet then
-                GameTooltip:AddDoubleLine("You have:", GetBudget(true) .. " TP", 1, 1, 1, 1, 1, 1)
+            -- same order and rules as the real click: buy what still fits the budget
+            local left = budget
+            for i, entry in ipairs(list) do
+                local affordable = entry.cost <= left
+                if affordable then left = left - entry.cost end
+                if i <= MAX_LINES then
+                    local label = entry.name
+                    if entry.sub and entry.sub ~= "" then label = label .. " (" .. entry.sub .. ")" end
+                    if affordable then
+                        GameTooltip:AddDoubleLine(label, FormatCost(entry.cost, isPet), 1, 1, 1, 1, 1, 1)
+                    else
+                        GameTooltip:AddDoubleLine(label, FormatCost(entry.cost, isPet), 1, 0.3, 0.3, 1, 0.3, 0.3)
+                    end
+                end
+            end
+            if #list > MAX_LINES then
+                GameTooltip:AddLine("... and " .. (#list - MAX_LINES) .. " more", 0.7, 0.7, 0.7)
+            end
+
+            GameTooltip:AddLine(" ")
+            if total > budget then
+                GameTooltip:AddDoubleLine("Total cost:", FormatCost(total, isPet), 1, 0.82, 0, 1, 0.3, 0.3)
             else
-                GameTooltip:AddDoubleLine("You have:", GetCoinTextureString(GetMoney()), 1, 1, 1, 1, 1, 1)
+                GameTooltip:AddDoubleLine("Total cost:", FormatCost(total, isPet), 1, 0.82, 0, 1, 1, 1)
+            end
+            GameTooltip:AddDoubleLine("You have:", FormatCost(budget, isPet), 1, 0.82, 0, 1, 1, 1)
+            if total > budget then
+                GameTooltip:AddLine("Red entries are skipped: not enough " .. (isPet and "training points." or "gold."), 1, 0.3, 0.3, true)
             end
         end
         GameTooltip:AddLine("Profession unlocks need the normal Train button.", 0.6, 0.6, 0.6, true)
