@@ -1100,6 +1100,55 @@ local function QueueLearnedSpell(spellID)
     C_Timer.After(1.2, function() AddToPopup(ResolveProfessionSpell(spellID)) end)
 end
 
+-- Talents (and anything else that does not go through a trainer) fire no
+-- "learned" event, so compare the spellbook with what we have seen before.
+-- db.known only ever grows, so re-picking a talent does not bring the popup back.
+local function ScanSpellbook()
+    local found = {}
+    local ok = pcall(function()
+        local bank = Enum.SpellBookSpellBank.Player
+        for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
+            local info = C_SpellBook.GetSpellBookSkillLineInfo(line)
+            if info and not info.offSpecID then
+                for i = info.itemIndexOffset + 1, info.itemIndexOffset + info.numSpellBookItems do
+                    local item = C_SpellBook.GetSpellBookItemInfo(i, bank)
+                    if item and item.itemType == Enum.SpellBookItemType.Spell and item.spellID
+                        and not item.isPassive and not item.isOffSpec then
+                        found[#found + 1] = item.spellID
+                    end
+                end
+            end
+        end
+    end)
+    return found, ok
+end
+
+local scanQueued = false
+local specSwitchUntil = 0
+local function CheckNewSpells(silent)
+    if not db then return end
+    local found, ok = ScanSpellbook()
+    if not ok or #found == 0 then return end
+    if GetTime() < specSwitchUntil then silent = true end
+    if not db.known then db.known = {}; silent = true end   -- first run: nothing is "new"
+    for _, id in ipairs(found) do
+        if not db.known[id] then
+            db.known[id] = true
+            if not silent then AddToPopup(ResolveProfessionSpell(id)) end
+        end
+    end
+end
+
+local function QueueScan(silent)
+    if scanQueued then return end
+    scanQueued = true
+    -- wait: a respec or a trainer visit fires many events, and auto-upgrade needs its turn
+    C_Timer.After(2.5, function()
+        scanQueued = false
+        CheckNewSpells(silent)
+    end)
+end
+
 function SetAutoReplace(value)
     db.autoReplace = value and true or false
     print("|cff66ccffTrainer Buddy|r: auto-upgrade action bar spells " .. (db.autoReplace and "ON" or "OFF"))
@@ -1117,6 +1166,8 @@ f:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
 f:RegisterEvent("PLAYER_REGEN_ENABLED")
 f:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 f:RegisterEvent("PLAYER_LOGIN")
+f:RegisterEvent("SPELLS_CHANGED")
+f:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
 f:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON then
         TrainerBuddyCharDB = TrainerBuddyCharDB or {}
@@ -1138,6 +1189,13 @@ f:SetScript("OnEvent", function(self, event, arg1)
         QueueRefreshPopup()
     elseif event == "PLAYER_LOGIN" then
         C_Timer.After(2, RefreshPopup)
+        C_Timer.After(4, function() CheckNewSpells(true) end)   -- first look is silent
+    elseif event == "SPELLS_CHANGED" then
+        if db and db.known then QueueScan(false) end
+    elseif event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED" then
+        -- switching spec swaps whole spell sets: just remember them, no popup
+        specSwitchUntil = GetTime() + 8
+        C_Timer.After(4, function() CheckNewSpells(true) end)
     elseif event == "PLAYER_REGEN_ENABLED" then
         if next(pendingSpells) then C_Timer.After(0.5, ProcessPendingSpells) end
     end
