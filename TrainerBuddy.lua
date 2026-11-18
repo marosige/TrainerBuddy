@@ -985,7 +985,25 @@ local function TestPopup(count)
     print(("|cff66ccffTrainer Buddy|r: test popup with %d spell(s). Close it with the X."):format(count))
 end
 
+local IGNORED_SPELLS = {}
+for _, family in ipairs({
+    {2550, 3102, 3413, 18260, 33359, 51296, 158765},           -- Cooking
+    {3273, 3274, 7924, 10846, 27028, 45542},                   -- First Aid
+    {2575, 2576, 3564, 10248, 29354, 50310},                   -- Mining
+    {2259, 3101, 3464, 11611, 28596, 51304},                   -- Alchemy
+    {2018, 3100, 3538, 9785, 29844, 51300},                    -- Blacksmithing
+    {7411, 7412, 7413, 13920, 28029, 51313},                   -- Enchanting
+    {4036, 4037, 4038, 12656, 30350, 51306},                   -- Engineering
+    {25229, 25230, 28894, 28895, 28897, 51311},                -- Jewelcrafting
+    {2108, 3104, 3811, 10662, 32549, 51302},                   -- Leatherworking
+    {3908, 3909, 3910, 12180, 26790, 51309},                   -- Tailoring
+    {45357, 45358, 45359, 45360, 45361, 45363},                -- Inscription
+}) do
+    for _, id in ipairs(family) do IGNORED_SPELLS[id] = true end
+end
+
 local function AddToPopup(spellID)
+    if IGNORED_SPELLS[spellID] then return end
     if not db or not db.showPopup or not IsPlaceable(spellID) or IsOnBar(spellID) then return end
     db.newSpells[spellID] = true
     RefreshPopup()
@@ -1058,21 +1076,10 @@ local function ProcessPendingSpells()
     end
 end
 
--- Profession ranks (Apprentice..Artisan) are separate spells; the one you actually
--- place on a bar is the profession itself (Fishing, Cooking, Alchemy...), at its highest rank.
+-- Fishing ranks are separate spells; the one you actually place on a bar is Fishing
+-- itself, at its highest rank. Crafting professions open with K, so they are ignored.
 local PROFESSION_RANKS = {
     {7620, 7731, 7732, 18248, 33095, 51294, 110410, 131474},   -- Fishing
-    {2550, 3102, 3413, 18260, 33359, 51296, 158765},           -- Cooking
-    {3273, 3274, 7924, 10846, 27028, 45542},                   -- First Aid
-    {2575, 2576, 3564, 10248, 29354, 50310},                   -- Mining
-    {2259, 3101, 3464, 11611, 28596, 51304},                   -- Alchemy
-    {2018, 3100, 3538, 9785, 29844, 51300},                    -- Blacksmithing
-    {7411, 7412, 7413, 13920, 28029, 51313},                   -- Enchanting
-    {4036, 4037, 4038, 12656, 30350, 51306},                   -- Engineering
-    {25229, 25230, 28894, 28895, 28897, 51311},                -- Jewelcrafting
-    {2108, 3104, 3811, 10662, 32549, 51302},                   -- Leatherworking
-    {3908, 3909, 3910, 12180, 26790, 51309},                   -- Tailoring
-    {45357, 45358, 45359, 45360, 45361, 45363},                -- Inscription
 }
 
 local function ResolveProfessionSpell(spellID)
