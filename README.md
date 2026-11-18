@@ -8,7 +8,7 @@ A World of Warcraft: Forever addon that makes trainer visits less tedious.
 
 - **Hide trainer entries**: right-click an entry in a class, pet or profession trainer window to hide the spell or recipe (all of its ranks). Hidden entries disappear from the list. Tick **Hidden** under *Settings > Filters* in the trainer window to show them again (marked, with *Unhide* in the right-click menu).
 - **Train All**: a button left of *Train* that buys every available, non-hidden entry you can afford and shows the cost in its tooltip. Profession unlocks still use the normal Train button.
-- **Hidden list** (grouped by class, pet and each profession, collapsible): *Settings > AddOns > Trainer Buddy*, `/tb`, or *Hidden entries...* in the trainer's Settings menu (the same menu also toggles auto-upgrade and the new-spells popup). Unhide entries one by one or all at once.
+- **Hidden list** (grouped by class, pet and each profession, collapsible): *Settings > AddOns > Trainer Buddy*, `/trb`, or *Hidden entries...* in the trainer's Settings menu (the same menu also toggles auto-upgrade and the new-spells popup). Unhide entries one by one or all at once.
 - **Action bar auto-upgrade** (toggle): after learning a new rank, replaces the old rank on your action bars.
 - **New spells popup** (toggle): a small bar listing newly learned spells that are not on any action bar yet. Drag them onto your bars; it stays until you close it with the X.
 
@@ -20,11 +20,11 @@ Copy this folder into `_forever_/Interface/AddOns/` and name it `TrainerBuddy`, 
 
 | Command | Action |
 | --- | --- |
-| `/tb`, `/trainerbuddy` | open the settings / hidden list |
-| `/tb auto` | toggle action bar auto-upgrade |
-| `/tb popup` | toggle the new-spells popup |
-| `/tb test [count]` | preview the popup with `count` random spells from your action bars (no number: empty popup). Calling it again replaces the preview; close it with the X |
-| `/tb help` | list all commands |
+| `/trb`, `/trainerbuddy` | open the settings / hidden list |
+| `/trb auto` | toggle action bar auto-upgrade |
+| `/trb popup` | toggle the new-spells popup |
+| `/trb test [count]` | preview the popup with `count` random spells from your action bars (no number: empty popup). Calling it again replaces the preview; close it with the X |
+| `/trb help` | list all commands |
 
 ## Notes
 

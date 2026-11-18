@@ -4,7 +4,7 @@ Trainer Buddy
     hide it (all ranks) or unhide it. Hidden entries disappear from the list.
   * "Train All" button left of the "Train" button. Skips hidden entries,
     shows the total price in its tooltip and buys as many as you can afford.
-  * Settings > AddOns > Trainer Buddy (or /tb): options, plus every hidden
+  * Settings > AddOns > Trainer Buddy (or /trb): options, plus every hidden
     entry grouped by trainer, with an Unhide button per entry.
   * Optional: upgrade action bar spells to the new rank after training, and
     a popup bar for newly learned spells.
@@ -657,8 +657,8 @@ end
 local MAX_ACTION_SLOT = 180
 local ICON_SIZE, ICON_GAP, PER_ROW = 45, 2, 6
 local popup, popupButtons = nil, {}
-local testSpells = {}   -- /tb test: shown even if already on a bar, never saved
-local testActive = false  -- /tb test keeps the popup open even with no spells
+local testSpells = {}   -- /trb test: shown even if already on a bar, never saved
+local testActive = false  -- /trb test keeps the popup open even with no spells
 local layout = {}   -- fixed slot positions: spellID or false (placed spells leave a hole)
 
 local function BarCount(spellID)
@@ -959,7 +959,7 @@ function RefreshPopup()
     popup:Show()
 end
 
--- /tb test [count]: fill the popup with random spells from your action bars,
+-- /trb test [count]: fill the popup with random spells from your action bars,
 -- so you can look at it without learning anything. Run again to clear it.
 local function TestPopup(count)
     -- always replaces the previous test; no number = empty popup (like 0). Close it with the X.
@@ -1144,15 +1144,15 @@ f:SetScript("OnEvent", function(self, event, arg1)
 end)
 
 SLASH_TRAINERBUDDY1 = "/trainerbuddy"
-SLASH_TRAINERBUDDY2 = "/tb"
+SLASH_TRAINERBUDDY2 = "/trb"
 local function PrintHelp()
     local c = "|cff66ccff"
     print(c .. "Trainer Buddy|r commands:")
-    print("  " .. c .. "/tb|r - open the settings and hidden list")
-    print("  " .. c .. "/tb auto|r - toggle action bar auto-upgrade")
-    print("  " .. c .. "/tb popup|r - toggle the new spells popup")
-    print("  " .. c .. "/tb test [count]|r - preview the popup with N random spells (no number: empty)")
-    print("  " .. c .. "/tb help|r - this list")
+    print("  " .. c .. "/trb|r - open the settings and hidden list")
+    print("  " .. c .. "/trb auto|r - toggle action bar auto-upgrade")
+    print("  " .. c .. "/trb popup|r - toggle the new spells popup")
+    print("  " .. c .. "/trb test [count]|r - preview the popup with N random spells (no number: empty)")
+    print("  " .. c .. "/trb help|r - this list")
 end
 
 SlashCmdList["TRAINERBUDDY"] = function(msg)
