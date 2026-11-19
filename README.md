@@ -34,4 +34,4 @@ Copy this folder into `_forever_/Interface/AddOns/` and name it `TrainerBuddy`, 
 
 - Targets the Forever client (retail-based, `## Interface: 16001`). If the game flags it as out of date, check your build with `/dump (select(4, GetBuildInfo()))` and adjust the TOC.
 - Druid form upgrades use Classic spell IDs (see `UPGRADES` in `TrainerBuddy.lua`); add pairs there if Forever differs.
-- Settings are saved per character. The Forever beta may not reload addon settings at login.
+- Settings are saved per character.

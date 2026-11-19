@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Trainer Buddy
-## Notes: Right-click trainer entries to hide them for good. Adds a "Train All" button that skips hidden entries and shows the total cost.
+## Notes: Right-click trainer entries to hide them for good, "Train All" with the total cost, auto-upgrade of action bar ranks and a popup for newly learned spells.
 ## Author: marosige
 ## Version: 1.4.1
 ## SavedVariablesPerCharacter: TrainerBuddyCharDB
