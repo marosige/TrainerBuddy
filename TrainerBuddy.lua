@@ -391,10 +391,10 @@ local function SetupTrainerFrame()
             -- 2) our own options below the Blizzard ones
             root:CreateDivider()
             root:CreateTitle("Trainer Buddy")
-            root:CreateCheckbox("Auto-upgrade action bars",
+            root:CreateCheckbox("Upgrade action bar ranks",
                 function() return db.autoReplace end,
                 function() SetAutoReplace(not db.autoReplace) end)
-            root:CreateCheckbox("Popup for new spells",
+            root:CreateCheckbox("New spells popup",
                 function() return db.showPopup end,
                 function()
                     db.showPopup = not db.showPopup
@@ -619,14 +619,14 @@ local function BuildOptions()
 
     local auto = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
     auto:SetPoint("TOPLEFT", optHeader, "BOTTOMLEFT", -4, -12)
-    auto.Text:SetText("Auto-upgrade action bar spells to the new rank after training")
+    auto.Text:SetText("Upgrade action bar ranks after training")
     auto:SetChecked(db.autoReplace)
     auto:SetScript("OnClick", function(self) db.autoReplace = self:GetChecked() and true or false end)
     autoCheck = auto
 
     local pop = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
     pop:SetPoint("TOPLEFT", auto, "BOTTOMLEFT", 0, 0)
-    pop.Text:SetText("Show a popup bar with newly learned spells (drag them to your action bars)")
+    pop.Text:SetText("New spells popup (drag them to your action bars)")
     pop:SetChecked(db.showPopup)
     pop:SetScript("OnClick", function(self)
         db.showPopup = self:GetChecked() and true or false
