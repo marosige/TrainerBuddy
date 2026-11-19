@@ -164,10 +164,9 @@ local function ShowContextMenu(button)
     local name, _, icon = GetTrainerServiceInfo(index)
     if not name then return end
 
-    MenuUtil.CreateContextMenu(button, function(owner, root)
-        root:CreateTitle(name)
+    MenuUtil.CreateContextMenu(button, function(_, root)
         if IsHidden(name) then
-            root:CreateButton("Unhide " .. name, function()
+            root:CreateButton("Show " .. name, function()
                 UnhideEntry(name)
             end)
         else
@@ -175,10 +174,6 @@ local function ShowContextMenu(button)
                 HideEntry(name, icon, index)
             end)
         end
-        root:CreateDivider()
-        root:CreateButton("Open hidden list (" .. CountHidden() .. ")", function()
-            if category then Settings.OpenToCategory(category:GetID()) end
-        end)
     end)
 end
 
