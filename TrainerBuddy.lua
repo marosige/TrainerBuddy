@@ -105,9 +105,27 @@ local function ApplyFilter()
             end
         end
         if toRemove and not db.showHidden then
+            -- remove without a relayout per entry, then refresh the list once
+            local batched = dp.Invalidate ~= nil
             for _, node in ipairs(toRemove) do
-                dp:Remove(node)
+                local parent = batched and node.GetParent and node:GetParent()
+                if parent then parent:Remove(node, true) else dp:Remove(node) end
             end
+            -- category headers whose entries are all hidden would stay behind empty
+            if dp.GetChildrenNodes then
+                local empty
+                for _, node in ipairs(dp:GetChildrenNodes()) do
+                    local data = node:GetData()
+                    if data and data.categoryInfo and node:GetSize() == 0 then
+                        empty = empty or {}
+                        empty[#empty + 1] = node
+                    end
+                end
+                for _, node in ipairs(empty or {}) do
+                    if batched then node:GetParent():Remove(node, true) else dp:Remove(node) end
+                end
+            end
+            if batched then dp:Invalidate() end
         end
     end
 
@@ -187,6 +205,8 @@ local function DecorateButton(button)
         local name = GetTrainerServiceInfo(button:GetID())
         if IsHidden(name) then
             button.name:SetText((button.name:GetText() or name) .. "  |cffb08cff(hidden)|r")
+            -- the row already sized the name to the plain text; resize so the marker is not cut off
+            if button.UpdateNameWidth then button:UpdateNameWidth() end
         end
     end
 end
@@ -260,17 +280,22 @@ function UpdateTrainAll()
     trainAllButton.list, trainAllButton.total, trainAllButton.isPet = list, total, isPet
     trainAllButton.affordable = affordable
     trainAllButton:SetEnabled(affordable > 0)
-
 end
 
 local function TrainAll()
     local list, _, isPet = CollectTrainable()
     local budget = GetBudget(isPet)
+    -- pick in list order (same as the tooltip), buy from the highest index down:
+    -- if the list shrinks after a purchase, the indices still to buy do not shift
+    local buy = {}
     for _, entry in ipairs(list) do
         if entry.cost <= budget then
             budget = budget - entry.cost
-            BuyTrainerService(entry.index)
+            buy[#buy + 1] = entry.index
         end
+    end
+    for i = #buy, 1, -1 do
+        BuyTrainerService(buy[i])
     end
 end
 
@@ -508,7 +533,7 @@ local function InitRow(row, data)
         card.btn:SetText("Unhide")
 
         card.nameText = card:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-                card.nameText:SetPoint("LEFT", card.iconBG, "RIGHT", 10, 0)
+        card.nameText:SetPoint("LEFT", card.iconBG, "RIGHT", 10, 0)
         card.nameText:SetPoint("RIGHT", card.btn, "LEFT", -8, 0)
         card.nameText:SetJustifyH("LEFT")
         card.nameText:SetWordWrap(false)
@@ -735,6 +760,7 @@ local function CreatePopup()
     popup:RegisterForDrag("LeftButton")
 
     local pos = db.popupPos
+    popup:ClearAllPoints()
     if pos then
         popup:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4])
     else
@@ -743,6 +769,8 @@ local function CreatePopup()
     popup:SetScript("OnDragStart", popup.StartMoving)
     popup:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
+        -- the position lives in db.popupPos; keep the client's layout cache out of it
+        if self.SetUserPlaced then self:SetUserPlaced(false) end
         local point, _, relPoint, x, y = self:GetPoint()
         db.popupPos = { point, relPoint, x, y }
     end)
@@ -1031,6 +1059,7 @@ local UPGRADES = {
 }
 
 local pendingSpells = {}
+local cursorRetry = false
 
 local function RankOf(spellID)
     local sub = C_Spell.GetSpellSubtext(spellID)
@@ -1054,9 +1083,15 @@ local function UpgradeOnBars(newID)
                 local rankText = newRank and (" (rank " .. newRank .. ")") or ""
                 ClearCursor()
                 C_Spell.PickupSpell(newID)
-                PlaceAction(slot)
-                ClearCursor()
-                print(("|cff66ccffTrainer Buddy|r: action slot %d -> %s%s"):format(slot, newName, rankText))
+                -- with an empty cursor PlaceAction would pick the old spell up and
+                -- ClearCursor would then delete it from the bar
+                if GetCursorInfo() == "spell" then
+                    PlaceAction(slot)
+                    ClearCursor()
+                    print(("|cff66ccffTrainer Buddy|r: action slot %d -> %s%s"):format(slot, newName, rankText))
+                else
+                    ClearCursor()
+                end
             end
         end
     end
@@ -1067,8 +1102,19 @@ local function ProcessPendingSpells()
         wipe(pendingSpells)
         return
     end
-    if InCombatLockdown() or GetCursorInfo() then
-        return  -- retried on PLAYER_REGEN_ENABLED / next learn event
+    if not next(pendingSpells) or InCombatLockdown() then
+        return  -- combat: retried on PLAYER_REGEN_ENABLED
+    end
+    if GetCursorInfo() then
+        -- something is held on the cursor: try again once it is free
+        if not cursorRetry then
+            cursorRetry = true
+            C_Timer.After(1, function()
+                cursorRetry = false
+                ProcessPendingSpells()
+            end)
+        end
+        return
     end
     for spellID in pairs(pendingSpells) do
         pendingSpells[spellID] = nil
@@ -1175,6 +1221,8 @@ f:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("SPELLS_CHANGED")
 f:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
+f:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+f:RegisterEvent("UNIT_PET_TRAINING_POINTS")
 f:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON then
         TrainerBuddyCharDB = TrainerBuddyCharDB or {}
@@ -1186,7 +1234,8 @@ f:SetScript("OnEvent", function(self, event, arg1)
 
         BuildOptions()
         EventUtil.ContinueOnAddOnLoaded("Blizzard_TrainerUI", SetupTrainerFrame)
-    elseif event == "PLAYER_MONEY" then
+    elseif event == "PLAYER_MONEY" or event == "UNIT_PET_TRAINING_POINTS" then
+        -- gold (or the pet's training points) changed: refresh Train All's enabled state
         if trainAllButton and ClassTrainerFrame and ClassTrainerFrame:IsShown() then
             UpdateTrainAll()
         end
@@ -1199,8 +1248,8 @@ f:SetScript("OnEvent", function(self, event, arg1)
         C_Timer.After(4, function() CheckNewSpells(true) end)   -- first look is silent
     elseif event == "SPELLS_CHANGED" then
         if db and db.known then QueueScan(false) end
-    elseif event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED" then
-        -- switching spec swaps whole spell sets: just remember them, no popup
+    elseif event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED" or event == "ACTIVE_TALENT_GROUP_CHANGED" then
+        -- switching spec / talent group swaps whole spell sets: just remember them, no popup
         specSwitchUntil = GetTime() + 8
         C_Timer.After(4, function() CheckNewSpells(true) end)
     elseif event == "PLAYER_REGEN_ENABLED" then
