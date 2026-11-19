@@ -12,6 +12,7 @@ Trainer Buddy
 
 local ADDON = ...
 
+local OTHER_CATEGORY = "Other"  -- hidden entries saved without a group
 local TRAINALL_WIDTH = 84  -- width of the Train All button
 local TRAINALL_LOCK = 1.5  -- seconds Train All rests after a click (no double purchases)
 local trainAllBusyUntil = 0
@@ -31,11 +32,6 @@ local function IsHidden(name)
     return name ~= nil and db ~= nil and db.hidden[name] ~= nil
 end
 
-local function CountHidden()
-    local n = 0
-    for _ in pairs(db.hidden) do n = n + 1 end
-    return n
-end
 
 -- Remember what the trainer's own tooltip shows, so the hidden list can show
 -- the same description later, even for spells you have not learned yet.
@@ -75,6 +71,26 @@ local function GetCategory(index)
     return "Class trainer"
 end
 
+-- Group of the trainer that is open right now (the profession's name for crafting trainers).
+local function CurrentCategory()
+    local ttype = C_Trainer and C_Trainer.GetTrainerType and C_Trainer.GetTrainerType()
+    if ttype ~= Enum.TrainerType.Tradeskills then return GetCategory() end
+    for i = 1, GetNumTrainerServices() do
+        local cat = GetCategory(i)
+        if cat ~= "Professions" then return cat end
+    end
+    return "Professions"
+end
+
+-- Hidden entries of this trainer only, not of every trainer.
+local function CountHiddenHere()
+    local cat, n = CurrentCategory(), 0
+    for _, entry in pairs(db.hidden) do
+        if (entry.category or OTHER_CATEGORY) == cat then n = n + 1 end
+    end
+    return n
+end
+
 local function Backfill(entry, texture, index)
     if not entry then return end
     if not entry.icon and texture then entry.icon = texture end
@@ -87,13 +103,45 @@ end
 
 local UpdateTrainAll  -- forward
 
+-- "Hidden" ticked with Available / Unavailable / Already Known all off: the client's
+-- own filters would return an empty list, so they are switched on behind the scenes
+-- and only the hidden entries are kept ("hidden only" mode). The three checkboxes
+-- look unticked meanwhile (GetTrainerServiceTypeFilter is wrapped below).
+local TYPE_FILTERS = { "available", "unavailable", "used" }
+local hiddenOnly = false
+local settingFilters = false
+local realGetFilter = GetTrainerServiceTypeFilter
+
+local function SetTypeFilters(value, only)
+    settingFilters = true
+    for _, f in ipairs(TYPE_FILTERS) do SetTrainerServiceTypeFilter(f, only and f == only or (not only and value)) end
+    settingFilters = false
+end
+
+local function LeaveHiddenOnly()
+    if not hiddenOnly then return end
+    hiddenOnly = false
+    SetTypeFilters(false)
+end
+
 -- Remove hidden entries from the list the Blizzard frame just built.
 local function ApplyFilter()
     local frame = ClassTrainerFrame
     if not frame or not frame.ScrollBox then return end
 
+    if db.showHidden and not hiddenOnly then
+        local any = false
+        for _, f in ipairs(TYPE_FILTERS) do if realGetFilter(f) then any = true end end
+        if not any then
+            -- the client answers with TRAINER_UPDATE, which rebuilds the list and comes back here
+            hiddenOnly = true
+            SetTypeFilters(true)
+            return
+        end
+    end
+
     local dp = frame.ScrollBox:GetDataProvider()
-    if dp and next(db.hidden) then
+    if dp and (next(db.hidden) or hiddenOnly) then
         local toRemove
         for _, node in dp:EnumerateEntireRange() do
             local data = node:GetData()
@@ -101,12 +149,17 @@ local function ApplyFilter()
                 local name, _, texture = GetTrainerServiceInfo(data.skillIndex)
                 if IsHidden(name) then
                     Backfill(db.hidden[name], texture, data.skillIndex)
+                    if not db.showHidden then
+                        toRemove = toRemove or {}
+                        toRemove[#toRemove + 1] = node
+                    end
+                elseif hiddenOnly then
                     toRemove = toRemove or {}
                     toRemove[#toRemove + 1] = node
                 end
             end
         end
-        if toRemove and not db.showHidden then
+        if toRemove then
             -- remove without a relayout per entry, then refresh the list once
             local batched = dp.Invalidate ~= nil
             for _, node in ipairs(toRemove) do
@@ -133,6 +186,18 @@ local function ApplyFilter()
 
     UpdateTrainAll()
 end
+
+-- While in hidden-only mode the Blizzard checkboxes read as unticked, so a click on one
+-- means "Hidden + that one": leave the mode and keep only the clicked filter.
+GetTrainerServiceTypeFilter = function(filter)
+    if hiddenOnly then return false end
+    return realGetFilter(filter)
+end
+hooksecurefunc("SetTrainerServiceTypeFilter", function(filter, value)
+    if settingFilters or not hiddenOnly then return end
+    hiddenOnly = false
+    SetTypeFilters(false, value and filter or nil)
+end)
 
 local function RefreshTrainer()
     if ClassTrainerFrame and ClassTrainerFrame:IsShown() then
@@ -215,6 +280,7 @@ end
 -- Returns list of {index, cost}, total cost, isPetTrainer
 local function CollectTrainable()
     local list, total = {}, 0
+    if hiddenOnly then return list, total, C_Trainer.GetTrainerType() == Enum.TrainerType.Pet end
     local isPet = C_Trainer.GetTrainerType() == Enum.TrainerType.Pet
     local stepIndex = GetTrainerServiceStepIndex and GetTrainerServiceStepIndex()
 
@@ -364,6 +430,7 @@ local function SetupTrainerFrame()
     CreateTrainAllButton()
 
     hooksecurefunc("ClassTrainerFrame_Update", ApplyFilter)
+    ClassTrainerFrame:HookScript("OnHide", LeaveHiddenOnly)   -- do not leave the client's filters switched on
     hooksecurefunc("ClassTrainerFrame_InitServiceButton", DecorateButton)
 
     -- integrate into the trainer's Settings dropdown
@@ -385,6 +452,7 @@ local function SetupTrainerFrame()
                 function() return db.showHidden end,
                 function()
                     db.showHidden = not db.showHidden
+                    if not db.showHidden then LeaveHiddenOnly() end
                     RefreshTrainer()
                 end)
 
@@ -400,7 +468,7 @@ local function SetupTrainerFrame()
                     db.showPopup = not db.showPopup
                     RefreshPopup()
                 end)
-            root:CreateButton("Hidden entries (" .. CountHidden() .. ")...", function()
+            root:CreateButton("Hidden entries (" .. CountHiddenHere() .. ")...", function()
                 if category then Settings.OpenToCategory(category:GetID()) end
             end)
         end)
@@ -413,7 +481,7 @@ end
 
 local scrollBox, emptyText
 
-local OTHER = "Other"
+local OTHER = OTHER_CATEGORY
 local HEADER_HEIGHT = 30
 
 local function BuildList()
