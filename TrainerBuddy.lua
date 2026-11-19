@@ -173,8 +173,10 @@ hooksecurefunc("SetTrainerServiceTypeFilter", function(filter, value)
 end)
 
 -- Does this trainer entry stay in the list?
+-- A rank you already know is never "hidden": hiding a spell hides the ranks you can still
+-- learn (e.g. you keep Revive rank 1 as a feral druid and do not want to pay for rank 2).
 local function KeepEntry(name, serviceType)
-    if IsHidden(name) then return db.showHidden end
+    if IsHidden(name) and serviceType ~= "used" then return db.showHidden end
     if mergeActive and db.typeFilter and serviceType and db.typeFilter[serviceType] == false then
         return false
     end
@@ -299,8 +301,8 @@ local function DecorateButton(button)
     if button == ClassTrainerFrame.skillStepButton then return end
     HookSkillButton(button)
     if db.showHidden then
-        local name = GetTrainerServiceInfo(button:GetID())
-        if IsHidden(name) then
+        local name, serviceType = GetTrainerServiceInfo(button:GetID())
+        if IsHidden(name) and serviceType ~= "used" then
             button.name:SetText((button.name:GetText() or name) .. "  |cffb08cff(hidden)|r")
             -- the row already sized the name to the plain text; resize so the marker is not cut off
             if button.UpdateNameWidth then button:UpdateNameWidth() end
