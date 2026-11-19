@@ -390,6 +390,7 @@ local function SetupTrainerFrame()
 
             -- 2) our own options below the Blizzard ones
             root:CreateDivider()
+            root:CreateTitle("Trainer Buddy")
             root:CreateCheckbox("Auto-upgrade action bars",
                 function() return db.autoReplace end,
                 function() SetAutoReplace(not db.autoReplace) end)
