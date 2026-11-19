@@ -2,7 +2,7 @@
 ## Title: Trainer Buddy
 ## Notes: Right-click trainer entries to hide them for good, "Train All" with the total cost, auto-upgrade of action bar ranks and a popup for newly learned spells.
 ## Author: marosige
-## Version: 1.4.2
+## Version: 1.1.0
 ## SavedVariablesPerCharacter: TrainerBuddyCharDB
 ## Category: Interface Enhancements
 ## IconTexture: Interface\AddOns\TrainerBuddy\icon.tga
