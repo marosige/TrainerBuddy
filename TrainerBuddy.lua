@@ -103,57 +103,92 @@ end
 
 local UpdateTrainAll  -- forward
 
--- "Hidden" ticked with Available / Unavailable / Already Known all off: the client's
--- own filters would return an empty list, so they are switched on behind the scenes
--- and only the hidden entries are kept ("hidden only" mode). The three checkboxes
--- look unticked meanwhile (GetTrainerServiceTypeFilter is wrapped below).
+-- Hidden-entries mode (the "Hidden" checkbox is ticked)
+--
+-- The client filters the list by type (Available / Unavailable / Already Known) before
+-- we see it, so entries of an unticked type are simply missing. While "Hidden" is ticked
+-- the client's three filters are therefore kept ON, and the filtering is done here instead:
+--   hidden entries (every type)  +  the other entries of the ticked types.
+-- The ticked types are kept in db.typeFilter; the checkboxes in the trainer menu read
+-- from it (GetTrainerServiceTypeFilter is wrapped below) and clicking one changes it.
 local TYPE_FILTERS = { "available", "unavailable", "used" }
-local hiddenOnly = false
-local settingFilters = false
 local realGetFilter = GetTrainerServiceTypeFilter
+local mergeActive = false     -- client filters are forced on right now
+local settingFilters = false  -- we are changing the client filters ourselves
 
-local function SetTypeFilters(value, only)
+local function SetClientFilters(values)
     settingFilters = true
-    for _, f in ipairs(TYPE_FILTERS) do SetTrainerServiceTypeFilter(f, only and f == only or (not only and value)) end
+    for _, f in ipairs(TYPE_FILTERS) do
+        local want = values[f] and true or false
+        if (realGetFilter(f) and true or false) ~= want then SetTrainerServiceTypeFilter(f, want) end
+    end
     settingFilters = false
 end
 
-local function LeaveHiddenOnly()
-    if not hiddenOnly then return end
-    hiddenOnly = false
-    SetTypeFilters(false)
+-- true if the client filters had to change (the client then rebuilds the list by itself)
+local function EnterMerge()
+    if mergeActive then return false end
+    mergeActive = true
+    if not db.typeFilter then
+        db.typeFilter = {}
+        for _, f in ipairs(TYPE_FILTERS) do db.typeFilter[f] = realGetFilter(f) and true or false end
+    end
+    local changed = false
+    for _, f in ipairs(TYPE_FILTERS) do if not realGetFilter(f) then changed = true end end
+    if changed then SetClientFilters({ available = true, unavailable = true, used = true }) end
+    return changed
 end
 
--- Remove hidden entries from the list the Blizzard frame just built.
+-- give the client its own filters back (Hidden unticked, or the trainer closed)
+local function LeaveMerge(forget)
+    if mergeActive then
+        mergeActive = false
+        if db.typeFilter then SetClientFilters(db.typeFilter) end
+    end
+    if forget == true then db.typeFilter = nil end   -- Hidden is off: the client's filters rule again
+end
+
+GetTrainerServiceTypeFilter = function(filter)
+    if mergeActive and db and db.typeFilter then return db.typeFilter[filter] and true or false end
+    return realGetFilter(filter)
+end
+
+-- A click on one of the three checkboxes: remember it, keep the client's filters on.
+hooksecurefunc("SetTrainerServiceTypeFilter", function(filter, value)
+    if settingFilters or not mergeActive or not db or not db.typeFilter then return end
+    db.typeFilter[filter] = value and true or false
+    SetClientFilters({ available = true, unavailable = true, used = true })
+end)
+
+-- Does this trainer entry stay in the list?
+local function KeepEntry(name, serviceType)
+    if IsHidden(name) then return db.showHidden end
+    if mergeActive and db.typeFilter and serviceType and db.typeFilter[serviceType] == false then
+        return false
+    end
+    return true
+end
+
+-- Remove the entries that should not show from the list the Blizzard frame just built.
 local function ApplyFilter()
     local frame = ClassTrainerFrame
     if not frame or not frame.ScrollBox then return end
 
-    if db.showHidden and not hiddenOnly then
-        local any = false
-        for _, f in ipairs(TYPE_FILTERS) do if realGetFilter(f) then any = true end end
-        if not any then
-            -- the client answers with TRAINER_UPDATE, which rebuilds the list and comes back here
-            hiddenOnly = true
-            SetTypeFilters(true)
-            return
-        end
+    if db.showHidden then
+        if EnterMerge() then return end   -- the client answers with TRAINER_UPDATE, we come back here
+    elseif mergeActive then
+        LeaveMerge(true)
     end
 
     local dp = frame.ScrollBox:GetDataProvider()
-    if dp and (next(db.hidden) or hiddenOnly) then
+    if dp and (next(db.hidden) or mergeActive) then
         local toRemove
         for _, node in dp:EnumerateEntireRange() do
             local data = node:GetData()
             if data and data.skillIndex then
-                local name, _, texture = GetTrainerServiceInfo(data.skillIndex)
-                if IsHidden(name) then
-                    Backfill(db.hidden[name], texture, data.skillIndex)
-                    if not db.showHidden then
-                        toRemove = toRemove or {}
-                        toRemove[#toRemove + 1] = node
-                    end
-                elseif hiddenOnly then
+                local name, serviceType, texture = GetTrainerServiceInfo(data.skillIndex)
+                if IsHidden(name) then Backfill(db.hidden[name], texture, data.skillIndex) end
+                if not KeepEntry(name, serviceType) then
                     toRemove = toRemove or {}
                     toRemove[#toRemove + 1] = node
                 end
@@ -166,7 +201,7 @@ local function ApplyFilter()
                 local parent = batched and node.GetParent and node:GetParent()
                 if parent then parent:Remove(node, true) else dp:Remove(node) end
             end
-            -- category headers whose entries are all hidden would stay behind empty
+            -- category headers left without entries would stay behind empty
             if dp.GetChildrenNodes then
                 local empty
                 for _, node in ipairs(dp:GetChildrenNodes()) do
@@ -186,18 +221,6 @@ local function ApplyFilter()
 
     UpdateTrainAll()
 end
-
--- While in hidden-only mode the Blizzard checkboxes read as unticked, so a click on one
--- means "Hidden + that one": leave the mode and keep only the clicked filter.
-GetTrainerServiceTypeFilter = function(filter)
-    if hiddenOnly then return false end
-    return realGetFilter(filter)
-end
-hooksecurefunc("SetTrainerServiceTypeFilter", function(filter, value)
-    if settingFilters or not hiddenOnly then return end
-    hiddenOnly = false
-    SetTypeFilters(false, value and filter or nil)
-end)
 
 local function RefreshTrainer()
     if ClassTrainerFrame and ClassTrainerFrame:IsShown() then
@@ -280,7 +303,10 @@ end
 -- Returns list of {index, cost}, total cost, isPetTrainer
 local function CollectTrainable()
     local list, total = {}, 0
-    if hiddenOnly then return list, total, C_Trainer.GetTrainerType() == Enum.TrainerType.Pet end
+    -- Available unticked in the trainer's filter: those entries are not shown, so not bought
+    if mergeActive and db.typeFilter and db.typeFilter.available == false then
+        return list, total, C_Trainer.GetTrainerType() == Enum.TrainerType.Pet
+    end
     local isPet = C_Trainer.GetTrainerType() == Enum.TrainerType.Pet
     local stepIndex = GetTrainerServiceStepIndex and GetTrainerServiceStepIndex()
 
@@ -430,7 +456,7 @@ local function SetupTrainerFrame()
     CreateTrainAllButton()
 
     hooksecurefunc("ClassTrainerFrame_Update", ApplyFilter)
-    ClassTrainerFrame:HookScript("OnHide", LeaveHiddenOnly)   -- do not leave the client's filters switched on
+    ClassTrainerFrame:HookScript("OnHide", function() LeaveMerge() end)   -- give the client its own filters back
     hooksecurefunc("ClassTrainerFrame_InitServiceButton", DecorateButton)
 
     -- integrate into the trainer's Settings dropdown
@@ -452,7 +478,7 @@ local function SetupTrainerFrame()
                 function() return db.showHidden end,
                 function()
                     db.showHidden = not db.showHidden
-                    if not db.showHidden then LeaveHiddenOnly() end
+                    if not db.showHidden then LeaveMerge(true) end
                     RefreshTrainer()
                 end)
 
