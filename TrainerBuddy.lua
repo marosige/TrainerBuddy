@@ -13,6 +13,8 @@ Trainer Buddy
 local ADDON = ...
 
 local TRAINALL_WIDTH = 84  -- width of the Train All button
+local TRAINALL_LOCK = 1.5  -- seconds Train All rests after a click (no double purchases)
+local trainAllBusyUntil = 0
 
 local db            -- = TrainerBuddyCharDB, set on ADDON_LOADED
 local trainAllButton
@@ -279,10 +281,11 @@ function UpdateTrainAll()
 
     trainAllButton.list, trainAllButton.total, trainAllButton.isPet = list, total, isPet
     trainAllButton.affordable = affordable
-    trainAllButton:SetEnabled(affordable > 0)
+    trainAllButton:SetEnabled(affordable > 0 and GetTime() >= trainAllBusyUntil)
 end
 
 local function TrainAll()
+    if GetTime() < trainAllBusyUntil then return end
     local list, _, isPet = CollectTrainable()
     local budget = GetBudget(isPet)
     -- pick in list order (same as the tooltip), buy from the highest index down:
@@ -296,6 +299,15 @@ local function TrainAll()
     end
     for i = #buy, 1, -1 do
         BuyTrainerService(buy[i])
+    end
+    if #buy > 0 then
+        -- until the server answered, the same entries still look available: a second
+        -- click would send the purchases again, so the button rests for a moment
+        trainAllBusyUntil = GetTime() + TRAINALL_LOCK
+        trainAllButton:Disable()
+        C_Timer.After(TRAINALL_LOCK + 0.1, function()
+            if ClassTrainerFrame and ClassTrainerFrame:IsShown() then UpdateTrainAll() end
+        end)
     end
 end
 
@@ -633,11 +645,26 @@ local function BuildOptions()
     restoreAll:SetPoint("RIGHT", panel, "RIGHT", -16, 0)
     restoreAll:SetPoint("TOP", hidHeader, "TOP", 0, 2)
     restoreAll:SetText("Unhide all")
+    -- first click only asks, the second one unhides: a misclick must not wipe the list
+    local armed, confirmTimer = false, nil
+    local function Disarm()
+        if confirmTimer then confirmTimer:Cancel(); confirmTimer = nil end
+        armed = false
+        restoreAll:SetText("Unhide all")
+    end
     restoreAll:SetScript("OnClick", function()
+        if not armed then
+            armed = true
+            restoreAll:SetText("Are you sure?")
+            confirmTimer = C_Timer.NewTimer(4, Disarm)   -- no second click: back to normal
+            return
+        end
+        Disarm()
         wipe(db.hidden)
         RefreshOptions()
         RefreshTrainer()
     end)
+    restoreAll:SetScript("OnHide", Disarm)
 
     scrollBox = CreateFrame("Frame", nil, panel, "WowScrollBoxList")
     scrollBox:SetPoint("TOPLEFT", hidHeader, "BOTTOMLEFT", 0, -14)
@@ -1066,18 +1093,39 @@ local function RankOf(spellID)
     return sub and tonumber(sub:match("(%d+)")) or nil
 end
 
+-- The highest rank of this spell below the new one that you had before: the
+-- spellbook history (db.known) plus whatever is on the bars. Only buttons with
+-- this rank are upgraded; lower ranks you keep on purpose (downranking) stay.
+local function PreviousTopRank(name, newRank)
+    local top
+    local function Consider(id)
+        if C_Spell.GetSpellName(id) == name then
+            local rank = RankOf(id)
+            if rank and rank < newRank and (not top or rank > top) then top = rank end
+        end
+    end
+    if db.known then
+        for id in pairs(db.known) do Consider(id) end
+    end
+    for slot = 1, MAX_ACTION_SLOT do
+        local actionType, id = GetActionInfo(slot)
+        if actionType == "spell" and id then Consider(id) end
+    end
+    return top
+end
+
 local function UpgradeOnBars(newID)
     local newName = C_Spell.GetSpellName(newID)
     if not newName then return end
     local newRank = RankOf(newID)
+    local prevRank = newRank and PreviousTopRank(newName, newRank)
 
     for slot = 1, MAX_ACTION_SLOT do
         local actionType, id = GetActionInfo(slot)
         if actionType == "spell" and id and id ~= newID then
             local replace = UPGRADES[id] == newID
-            if not replace and newRank and C_Spell.GetSpellName(id) == newName then
-                local oldRank = RankOf(id)
-                replace = oldRank ~= nil and newRank > oldRank
+            if not replace and prevRank and C_Spell.GetSpellName(id) == newName then
+                replace = RankOf(id) == prevRank
             end
             if replace then
                 local rankText = newRank and (" (rank " .. newRank .. ")") or ""
