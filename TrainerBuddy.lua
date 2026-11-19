@@ -154,10 +154,22 @@ GetTrainerServiceTypeFilter = function(filter)
 end
 
 -- A click on one of the three checkboxes: remember it, keep the client's filters on.
+local rebuildQueued = false
 hooksecurefunc("SetTrainerServiceTypeFilter", function(filter, value)
     if settingFilters or not mergeActive or not db or not db.typeFilter then return end
     db.typeFilter[filter] = value and true or false
     SetClientFilters({ available = true, unavailable = true, used = true })
+    -- The client's filters were all on already, so nothing changed for the client and it sends no
+    -- TRAINER_UPDATE (ticking a box that looked unticked): rebuild the list ourselves, once, a moment later.
+    if not rebuildQueued then
+        rebuildQueued = true
+        C_Timer.After(0, function()
+            rebuildQueued = false
+            if ClassTrainerFrame and ClassTrainerFrame:IsShown() and ClassTrainerFrame_Update then
+                ClassTrainerFrame_Update(true)
+            end
+        end)
+    end
 end)
 
 -- Does this trainer entry stay in the list?
