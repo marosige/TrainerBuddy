@@ -63,7 +63,7 @@ Copy this folder into `_forever_/Interface/AddOns/` and name it `TrainerBuddy`, 
 - Made for WoW: Forever (retail-based, `## Interface: 16001`). If the game flags it as out of date, check your build with `/dump (select(4, GetBuildInfo()))` and adjust the TOC.
 - Settings and the hidden list are saved per character.
 - Druid form upgrades use Classic spell IDs (see `UPGRADES` in `TrainerBuddy.lua`); add pairs there if Forever differs.
-- Feedback and bug reports are welcome: https://github.com/marosige/TrainerBuddy
+- Feedback and bug reports are welcome in the comments on the CurseForge page.
 
 ## For developers
 
