@@ -183,6 +183,68 @@ local function KeepEntry(name, serviceType)
     return true
 end
 
+---------------------------------------------------------------------------
+-- Price memory: what each trainer you visited charges you, so the tooltips can
+-- point out a cheaper trainer (reputation discounts differ from town to town).
+-- db.prices[trainer] = { label = zone name, costs = { ["Spell|Rank 3"] = copper } }
+---------------------------------------------------------------------------
+
+local function EntryKey(name, sub)
+    return name .. "|" .. (sub or "")
+end
+
+-- one trainer = this NPC in this zone
+local function TrainerKey()
+    local zone = GetRealZoneText and GetRealZoneText() or ""
+    if zone == "" then zone = nil end
+    local npc = UnitName and UnitName("npc") or nil
+    return (npc or "?") .. "@" .. (zone or "?"), zone or npc or "?"
+end
+
+-- Called after every rebuild of the trainer list: remembers the prices that are listed.
+local function RecordPrices()
+    if not db or not db.prices then return end
+    if C_Trainer.GetTrainerType() == Enum.TrainerType.Pet then return end   -- pets pay in training points
+    local key, label = TrainerKey()
+    local rec = db.prices[key]
+    if not rec then rec = { costs = {} }; db.prices[key] = rec end
+    rec.label = label
+    local stepIndex = GetTrainerServiceStepIndex and GetTrainerServiceStepIndex()
+    for i = 1, GetNumTrainerServices() do
+        if i ~= stepIndex then
+            local name, serviceType, _, _, sub = GetTrainerServiceInfo(i)
+            if name and serviceType ~= "used" then
+                local cost, isProfession = GetTrainerServiceCost(i)
+                if type(cost) == "number" and cost > 0 and not isProfession then
+                    rec.costs[EntryKey(name, sub)] = cost
+                end
+            end
+        end
+    end
+end
+
+-- The cheapest OTHER trainer that has a remembered price for every entry in `entries`
+-- ({ name =, sub = } each). Returns its label and the total, or nil.
+local function CheapestElsewhere(entries)
+    if not db or not db.prices or #entries == 0 then return nil end
+    local hereKey = TrainerKey()
+    local bestLabel, bestTotal
+    for key, rec in pairs(db.prices) do
+        if key ~= hereKey and rec.costs then
+            local total, complete = 0, true
+            for _, e in ipairs(entries) do
+                local cost = rec.costs[EntryKey(e.name, e.sub)]
+                if not cost then complete = false; break end
+                total = total + cost
+            end
+            if complete and (not bestTotal or total < bestTotal) then
+                bestLabel, bestTotal = rec.label or "Another trainer", total
+            end
+        end
+    end
+    return bestLabel, bestTotal
+end
+
 -- Remove the entries that should not show from the list the Blizzard frame just built.
 local function ApplyFilter()
     local frame = ClassTrainerFrame
@@ -233,6 +295,7 @@ local function ApplyFilter()
         end
     end
 
+    RecordPrices()
     UpdateTrainAll()
 end
 
@@ -456,6 +519,13 @@ local function CreateTrainAllButton()
             else
                 GameTooltip:AddDoubleLine("Total cost:", FormatCost(total, isPet), 1, 0.82, 0, 1, 1, 1)
             end
+            if not isPet then
+                -- a trainer you visited before that charges less for exactly these entries
+                local label, best = CheapestElsewhere(list)
+                if best and best < total then
+                    GameTooltip:AddDoubleLine(label .. " cost:", FormatCost(best, isPet), 1, 0.82, 0, 0.5, 1, 0.5)
+                end
+            end
             GameTooltip:AddDoubleLine("You have:", FormatCost(budget, isPet), 1, 0.82, 0, 1, 1, 1)
             if total > budget then
                 GameTooltip:AddLine("Red entries are skipped: not enough " .. (isPet and "training points." or "gold."), 1, 0.3, 0.3, true)
@@ -466,8 +536,30 @@ local function CreateTrainAllButton()
     trainAllButton:SetScript("OnLeave", GameTooltip_Hide)
 end
 
+-- The plain Train button: if a trainer you visited before charges less for the selected
+-- entry, the tooltip says so (nothing else).
+local function TrainButtonTooltip(self)
+    if not db or C_Trainer.GetTrainerType() == Enum.TrainerType.Pet then return end
+    local selected = ClassTrainerFrame.selectedService
+    if not selected then return end
+    local map = ClassTrainerFrame.displayIndexToSkillIndex   -- the list can be sorted: display index -> trainer index
+    local index = (type(map) == "table" and map[selected]) or selected
+    local name, _, _, _, sub = GetTrainerServiceInfo(index)
+    local cost, isProfession = GetTrainerServiceCost(index)
+    if not name or isProfession or type(cost) ~= "number" or cost <= 0 then return end
+    local label, best = CheapestElsewhere({ { name = name, sub = sub } })
+    if not best or best >= cost then return end
+    if not GameTooltip:IsOwned(self) then GameTooltip:SetOwner(self, "ANCHOR_RIGHT") end
+    GameTooltip:AddDoubleLine(label .. " cost:", CoinString(best), 1, 0.82, 0, 0.5, 1, 0.5)
+    GameTooltip:Show()
+end
+
 local function SetupTrainerFrame()
     CreateTrainAllButton()
+    ClassTrainerTrainButton:HookScript("OnEnter", TrainButtonTooltip)
+    ClassTrainerTrainButton:HookScript("OnLeave", function(self)
+        if GameTooltip:IsOwned(self) then GameTooltip_Hide() end
+    end)
 
     hooksecurefunc("ClassTrainerFrame_Update", ApplyFilter)
     ClassTrainerFrame:HookScript("OnHide", function() LeaveMerge() end)   -- give the client its own filters back
@@ -1383,6 +1475,7 @@ f:SetScript("OnEvent", function(self, event, arg1)
         if db.autoReplace == nil then db.autoReplace = true end
         if db.showPopup == nil then db.showPopup = true end
         db.newSpells = db.newSpells or {}
+        db.prices = db.prices or {}
 
         BuildOptions()
         EventUtil.ContinueOnAddOnLoaded("Blizzard_TrainerUI", SetupTrainerFrame)

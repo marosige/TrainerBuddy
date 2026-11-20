@@ -22,6 +22,8 @@ Want to see hidden entries again? Tick **Hidden** under the trainer's *Settings 
 
 A **Train All** button sits right next to *Train*. It buys every available, non-hidden entry you can afford, and skips what you hid. Hover it to see each entry with its price, the total cost, and how much you have.
 
+Trainer Buddy remembers what each trainer you visit charges you (reputation discounts differ from town to town). If another trainer you visited before is cheaper for the same entries, the Train All tooltip adds a line like *Thunder Bluff cost: 1g 58s*, and the plain *Train* button's tooltip does the same for the selected entry. Visit a trainer once to teach it the prices.
+
 ![Train All lists every entry with its price](screenshots/1-train-all.png)
 
 ### Hidden entries list
